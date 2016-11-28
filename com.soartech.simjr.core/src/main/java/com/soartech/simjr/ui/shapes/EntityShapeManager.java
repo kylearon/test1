@@ -34,6 +34,7 @@ package com.soartech.simjr.ui.shapes;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -45,7 +46,9 @@ import javax.swing.ImageIcon;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.soartech.shapesystem.Position;
+import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.Lists;
+import com.google.common.collect.MinMaxPriorityQueue;
 import com.soartech.shapesystem.Shape;
 import com.soartech.shapesystem.ShapeStyle;
 import com.soartech.shapesystem.ShapeSystem;
@@ -73,7 +76,7 @@ public class EntityShapeManager
     private Simulation simulation;
     private ShapeSystem shapeSystem;
     private SwingPrimitiveRendererFactory shapeFactory;
-    private Listener listener = new Listener();
+    protected Listener listener = new Listener();
     private TimedShapeManager timedShapes;
     private Map<Entity, EntityShape> shapes = new HashMap<Entity, EntityShape>();
     private List<String> selectionIds = new ArrayList<String>();
@@ -95,6 +98,7 @@ public class EntityShapeManager
         factory.put(TankShape.NAME, TankShape.FACTORY);
         factory.put(TruckShape.NAME, TruckShape.FACTORY);
         factory.put(WaypointShape.NAME, WaypointShape.FACTORY);
+        factory.put(CircularRegionShape.NAME, CircularRegionShape.FACTORY);
         factory.put(RouteShape.NAME, RouteShape.FACTORY);
     }
     
@@ -164,21 +168,52 @@ public class EntityShapeManager
         shapeSystem.getLayer(EntityConstants.LAYER_LABELS).setZorder(80);
     }
     
+    /**
+     * Assumes that the sim lock is held when this called.
+     * 
+     */
     public void update()
     {
+        String selectionRemoved = "";
         synchronized(removedEntities)
         {
             for(Entity e : removedEntities)
             {
                 entityRemoved(e);
+                for(String selectionId : selectionIds)
+                {
+                    //When we remove something that is selected we should remove the selection shape as well!
+                    if(selectionId.equals("selection." + e.getName()))
+                    {
+                        selectionRemoved = e.getName();
+                        shapeSystem.removeShape(selectionId);
+                    }
+                }
             }
             removedEntities.clear();
         }
         synchronized(addedEntities)
         {
+            Set<Entity> alreadyAdded = new HashSet<Entity>(addedEntities.size(), 0.75f);
             for(Entity e : addedEntities)
             {
+                // Skip entities that have been removed
+                if(e.getSimulation() == null)
+                {
+                    continue;
+                }
+                // Skip entities that were already added this cycle.
+                if (!alreadyAdded.add(e))
+                {
+                    continue;
+                }
+                
                 entityAdded(e);
+                //If we re-add something that has just been removed we should assume that the shape has changed, but it is still selected
+                if(e.getName().equals(selectionRemoved))
+                {
+                    createSelection(e);
+                }
             }
             addedEntities.clear();
         }
@@ -189,8 +224,7 @@ public class EntityShapeManager
             updateEntity(e);
         }
         
-        timedShapes.update(simulation.getTime());
-        
+        timedShapes.update(simulation.getTime());    
     }
     
     public void updateSelection(List<Entity> entities)
@@ -203,7 +237,7 @@ public class EntityShapeManager
         
         for(Entity e : entities)
         {
-            if(e != null && EntityTools.isVisible(e))
+            if(e != null && shapes.containsKey(e) && EntityTools.isVisible(e))
             {
                 createSelection(e);
             }
@@ -250,7 +284,7 @@ public class EntityShapeManager
     public void highlightEntity(Entity entity, Color color)
     {
         shapeSystem.removeShape(HIGHLIGHT_ID);
-        if(entity != null && EntityTools.isVisible(entity))
+        if(entity != null && shapes.containsKey(entity) && EntityTools.isVisible(entity))
         {
             createHighlight(entity, HIGHLIGHT_ID, color);
         }
@@ -268,6 +302,7 @@ public class EntityShapeManager
         
         final Shape selection = factory.createSelection(highlightId, selected);
         ShapeStyle style = selection.getStyle();
+        
         style.setOpacity(selection.getStyle().getOpacity() / 2.0f);
         if (color != null)
         {
@@ -287,7 +322,6 @@ public class EntityShapeManager
     
     public void addDecoration(Entity e, Shape shape)
     {
-        shape.setPosition(new Position(shapes.get(e).getPrimaryDisplayShape()));
         String id = shape.getName();
         if (shapeSystem.getShape(id) != null)
         {
@@ -306,34 +340,39 @@ public class EntityShapeManager
         decorationIds.clear();
     }
     
-    public List<Entity> getEntitiesAtScreenPoint(double x, double y, double tolerance)
+    /**
+     * Returns a list of {@link Entity}s within a given tolerance of the x/y coordinate.
+     * 
+     * Relies on underlying {@link EntityShape#hitTest(double, double, double)} implementation for
+     * distance checks.
+     */
+    public List<Entity> getEntitiesAtScreenPoint(final double x, final double y, final double tolerance)
     {
-        List<Entity> r = new ArrayList<Entity>();
-        List<Entity> routes = new ArrayList<Entity>();
-        List<Entity> areas = new ArrayList<Entity>();
-        for(EntityShape es : shapes.values())
+        final MinMaxPriorityQueue<EntityShape> pq = MinMaxPriorityQueue.orderedBy(new Comparator<EntityShape>()
+                {
+                    @Override
+                    public int compare(EntityShape o1, EntityShape o2)
+                    {
+                        final EntityPrototype p1 = o1.getEntity().getPrototype();
+                        final EntityPrototype p2 = o2.getEntity().getPrototype();
+                        return ComparisonChain.start()
+                                .compareTrueFirst(o1.hitTest(x, y, tolerance), o2.hitTest(x, y, tolerance))
+                                .compareFalseFirst(p1.hasSubcategory("area"), p2.hasSubcategory("area"))
+                                .compareFalseFirst(p1.hasSubcategory("route"), p2.hasSubcategory("route"))
+                                .compare(o1.minDistance(x, y), o2.minDistance(x, y))
+                                .result();
+                    }
+                }).create();
+        pq.addAll(shapes.values());
+        final List<Entity> ret = Lists.newArrayList();
+        for (EntityShape es : pq)
         {
-            if(es.hitTest(x, y, tolerance))
+            if (es.hitTest(x, y, tolerance) || es.minDistance(x, y) < tolerance)
             {
-                final Entity e = es.getEntity();
-                final EntityPrototype proto = e.getPrototype();
-                if(proto.hasSubcategory("route"))
-                {
-                    routes.add(e);
-                }
-                else if(proto.hasSubcategory("area"))
-                {
-                    areas.add(e);
-                }
-                else
-                {
-                    r.add(e);
-                }
+                ret.add(es.getEntity());
             }
         }
-        r.addAll(routes);
-        r.addAll(areas);
-        return r;
+        return ret;
     }
     
     private void updateEntity(Entity e)
@@ -368,7 +407,7 @@ public class EntityShapeManager
         return f;
     }
     
-    private void entityAdded(Entity e)
+    protected void entityAdded(Entity e)
     {
         final EntityShapeFactory f = getShapeFactory(e);
         if(f == null)
@@ -387,7 +426,7 @@ public class EntityShapeManager
         shapes.put(e, shape);
     }
 
-    private void entityRemoved(Entity e)
+    protected void entityRemoved(Entity e)
     {
         EntityShape shape = shapes.remove(e);
         if(shape != null)
@@ -396,7 +435,7 @@ public class EntityShapeManager
         }
     }
     
-    private class Listener extends SimulationListenerAdapter
+    protected class Listener extends SimulationListenerAdapter
     {
         /* (non-Javadoc)
          * @see com.soartech.simjr.SimulationAdapter#onEntityAdded(com.soartech.simjr.Entity)

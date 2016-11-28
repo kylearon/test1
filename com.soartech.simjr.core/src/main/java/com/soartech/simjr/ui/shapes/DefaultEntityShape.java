@@ -123,6 +123,9 @@ public class DefaultEntityShape extends EntityShape
             final String prefix = "simjr/images/shapes/entities/" + prototype.getId();
             final String defaultImageId = prefix + "/friendly.png";
             
+            // Decent fallback prefix
+            finalImagePrefix = prefix;
+
             final Image testImage = rendererFactory.getImage(defaultImageId);
             if(testImage != null)
             {
@@ -242,6 +245,11 @@ public class DefaultEntityShape extends EntityShape
     private void createBody(String name)
     {
         myBody = createBodyShape(name, new ShapeStyle());
+    }
+    
+    public ImageShape getBodyShape()
+    {
+        return myBody;
     }
     
     private void createShadow(String name)

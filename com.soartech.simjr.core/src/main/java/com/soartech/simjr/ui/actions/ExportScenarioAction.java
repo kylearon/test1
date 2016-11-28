@@ -40,8 +40,8 @@ import javax.swing.JOptionPane;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.soartech.simjr.scenario.Model;
-import com.soartech.simjr.scenario.ModelException;
+import com.soartech.simjr.scenario.model.Model;
+import com.soartech.simjr.scenario.model.ModelException;
 import com.soartech.simjr.sim.ScenarioExporter;
 import com.soartech.simjr.sim.Simulation;
 import com.soartech.simjr.ui.SimulationImages;
@@ -98,7 +98,7 @@ public class ExportScenarioAction extends AbstractSimulationAction
         }
         catch (ModelException e)
         {
-            logger.error("ModelException", e);
+            logger.error(e.toString());
             JOptionPane.showMessageDialog(null, e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
 

@@ -39,8 +39,8 @@ import javax.swing.KeyStroke;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.soartech.simjr.scenario.Model;
-import com.soartech.simjr.scenario.ModelException;
+import com.soartech.simjr.scenario.model.Model;
+import com.soartech.simjr.scenario.model.ModelException;
 import com.soartech.simjr.ui.SimulationImages;
 import com.soartech.simjr.ui.actions.ActionManager;
 import com.soartech.simjr.ui.pvd.PlanViewDisplayProvider;
@@ -55,8 +55,6 @@ public class OpenAction extends AbstractEditorAction
     
     /**
      * @param manager
-     * @param label
-     * @param icon
      */
     public OpenAction(ActionManager manager)
     {
@@ -95,13 +93,13 @@ public class OpenAction extends AbstractEditorAction
             final PlanViewDisplayProvider pvdPro = findService(PlanViewDisplayProvider.class);
             if(pvdPro != null && pvdPro.getActivePlanViewDisplay() != null)
             {
-                pvdPro.getActivePlanViewDisplay().showAll();
+                pvdPro.getActivePlanViewDisplay().getView().showAll();
             }
         }
         catch (ModelException e1)
         {
             getApplication().showError("Error loading file", e1);
-            logger.error("ModelException", e1);
+            logger.error(e1.toString());
         }
     }
 

@@ -79,7 +79,7 @@ public class UndoAction extends AbstractEditorAction
         }
         catch(CannotUndoException ex)
         {
-            logger.error("Undo Failed", ex);
+            logger.error(ex.toString());
             JOptionPane.showMessageDialog(getApplication().getFrame(), "Undo failed: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }

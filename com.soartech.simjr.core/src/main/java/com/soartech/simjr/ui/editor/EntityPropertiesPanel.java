@@ -34,6 +34,10 @@ package com.soartech.simjr.ui.editor;
 import java.awt.Component;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.text.NumberFormat;
+import java.text.ParseException;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -44,18 +48,19 @@ import javax.swing.DefaultListCellRenderer;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
+import javax.swing.JFormattedTextField;
 import javax.swing.JLabel;
 import javax.swing.JList;
-import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.undo.UndoableEdit;
 
 import net.miginfocom.swing.MigLayout;
+import bibliothek.gui.dock.common.DefaultSingleCDockable;
 
 import com.soartech.simjr.scenario.EntityElement;
-import com.soartech.simjr.scenario.Model;
-import com.soartech.simjr.scenario.ModelChangeEvent;
-import com.soartech.simjr.scenario.ModelChangeListener;
+import com.soartech.simjr.scenario.model.Model;
+import com.soartech.simjr.scenario.model.ModelChangeEvent;
+import com.soartech.simjr.scenario.model.ModelChangeListener;
 import com.soartech.simjr.services.ServiceManager;
 import com.soartech.simjr.sim.EntityConstants;
 import com.soartech.simjr.sim.EntityPrototype;
@@ -64,25 +69,35 @@ import com.soartech.simjr.sim.EntityPrototypeDatabase;
 /**
  * @author ray
  */
-public class EntityPropertiesPanel extends JPanel implements ModelChangeListener, ActionListener
+public class EntityPropertiesPanel extends DefaultSingleCDockable implements ModelChangeListener, ActionListener, KeyListener
 {
-    private static final long serialVersionUID = -6065915301912538128L;
-
     private final ServiceManager services;
     private final Model model;
     private EntityElement entity;
     private final JTextField nameField;
-    private final DefaultComboBoxModel typeModel = new DefaultComboBoxModel();
-    private final JComboBox typeCombo = new JComboBox(typeModel);
-    private final DefaultComboBoxModel forceModel = new DefaultComboBoxModel(EntityConstants.ALL_FORCES);
-    private final JComboBox forceCombo = new JComboBox(forceModel);
+    final JFormattedTextField minimumAltitude= new JFormattedTextField(NumberFormat.getNumberInstance());
+    final JFormattedTextField maximumAltitude = new JFormattedTextField(NumberFormat.getNumberInstance());
+    final JFormattedTextField width = new JFormattedTextField(NumberFormat.getNumberInstance());
+    private final DefaultComboBoxModel<EntityPrototype> typeModel = new DefaultComboBoxModel<EntityPrototype>();
+    private final JComboBox<EntityPrototype> typeCombo = new JComboBox<EntityPrototype>(typeModel);
+    private final DefaultComboBoxModel<String> forceModel = new DefaultComboBoxModel<String>(EntityConstants.ALL_FORCES);
+    private final JComboBox<String> forceCombo = new JComboBox<String>(forceModel);
     private final JCheckBox visibleCheckBox = new JCheckBox();
     private final HeadingSpinner headingSpinner;
     private final ScriptEditPanel initScript;
     
     public EntityPropertiesPanel(final ServiceManager services, final Model model)
     {
-        super(new MigLayout());
+        super("EntityProperties");
+        
+        //DF settings
+        setLayout(new MigLayout());
+        setCloseable(true);
+        setMinimizable(true);
+        setExternalizable(true);
+        setMaximizable(true);
+        setTitleText("Entity Properties");
+        setResizeLocked(true);
         
         this.model = model;
         this.services = services;
@@ -102,25 +117,37 @@ public class EntityPropertiesPanel extends JPanel implements ModelChangeListener
         
         add(new JLabel("Heading"), "gap unrelated");
         add(headingSpinner = new HeadingSpinner(undoService), "wrap");
+        
+        add(new JLabel("Width"));
+        width.setColumns(5);
+        width.addKeyListener(this);
+        add(width);
+        
+        add(new JLabel("Min Altitude"), "gap unrelated");
+        minimumAltitude.setColumns(5);
+        minimumAltitude.addKeyListener(this);
+        add(minimumAltitude);
+        
+        add(new JLabel("Max Altitude"), "gap unrelated");
+        maximumAltitude.setColumns(5);
+        maximumAltitude.addKeyListener(this);
+        add(maximumAltitude, "wrap, span 2");
+        
         add(new JLabel("Init Script"), "top");
         add(initScript = new ScriptEditPanel(undoService, 50), "span, growx, growy");
-        
-        new EntryCompletionHandler(nameField) {
 
+        new EntryCompletionHandler(nameField) {
             @Override
-            public boolean verify(JComponent input)
-            {
+            public boolean verify(JComponent input) {
                 if(entity != null)
                 {
                     final String newName = nameField.getText().trim();
-                    if(!newName.equals(entity.getName()) &&model.getEntities().getEntity(newName) != null)
-                    {
+                    if(!newName.equals(entity.getName()) &&model.getEntities().getEntity(newName) != null) {
                         return false;
                     }
                     
                     final UndoableEdit edit = entity.setName(newName);
-                    if(edit != null)
-                    {
+                    if(edit != null) {
                         services.findService(UndoService.class).addEdit(edit);
                     }
                 }
@@ -128,50 +155,42 @@ public class EntityPropertiesPanel extends JPanel implements ModelChangeListener
             }};
         
         populateTypeModel();
+        
         new EntryCompletionHandler(typeCombo) {
-
             @Override
-            public boolean verify(JComponent input)
-            {
+            public boolean verify(JComponent input) {
                 EntityPrototype p = (EntityPrototype) typeCombo.getSelectedItem();
-                if(entity != null)
-                {
+                if(entity != null) {
                     services.findService(UndoService.class).addEdit(entity.setPrototype(p.getId()));
                 }
                 return true;
-            }};
+            }
+        };
         
         typeCombo.setRenderer(new DefaultListCellRenderer() {
-
             private static final long serialVersionUID = 418324624637909108L;
-
             /* (non-Javadoc)
              * @see javax.swing.DefaultListCellRenderer#getListCellRendererComponent(javax.swing.JList, java.lang.Object, int, boolean, boolean)
              */
             @Override
-            public Component getListCellRendererComponent(JList list,
-                    Object value, int index, boolean isSelected,
-                    boolean cellHasFocus)
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus)
             {
-                final JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected,
-                        cellHasFocus);
+                final JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
                 final EntityPrototype p = (EntityPrototype) value;
                 setText(String.format("<html>%s / %s / <b>%s</b></html>", p.getDomain(), p.getCategory(), p.getSubcategory()));
                 return label;
             }});
         
         new EntryCompletionHandler(forceCombo) {
-
             @Override
-            public boolean verify(JComponent input)
-            {
+            public boolean verify(JComponent input) {
                 String force = forceCombo.getSelectedItem().toString();
-                if(entity != null)
-                {
+                if(entity != null) {
                     services.findService(UndoService.class).addEdit(entity.setForce(force));
                 }
                 return true;
-            }};
+            }
+        };
         setEntity(null);
         this.model.addModelChangeListener(this);
     }
@@ -184,12 +203,37 @@ public class EntityPropertiesPanel extends JPanel implements ModelChangeListener
     public void setEntity(EntityElement entity)
     {
         this.entity = entity;
-        
         final boolean enabled = this.entity != null;
         nameField.setEnabled(enabled);
         typeCombo.setEnabled(enabled);
         forceCombo.setEnabled(enabled);
         visibleCheckBox.setEnabled(enabled);
+        boolean isArea= false;
+        boolean isRoute = false;
+        boolean isCylinder = false;
+        
+        width.setEnabled(false);
+        minimumAltitude.setEnabled(false);
+        maximumAltitude.setEnabled(false);
+        
+        if(entity != null)
+        {
+            EntityPrototype ep = services.findService(EntityPrototypeDatabase.class).getPrototype(entity.getPrototype());
+            isArea = ep.getCategory().equals("area");
+            isRoute = ep.getCategory().equals("route");
+            isCylinder = ep.getCategory().equals("cylinder");
+        }
+
+
+        if(entity != null && (isArea || isRoute || isCylinder))
+        {
+            minimumAltitude.setEnabled(enabled);
+            maximumAltitude.setEnabled(enabled);
+        }
+        
+        
+        if(entity != null && (isRoute || isCylinder))
+            width.setEnabled(enabled);
         
         if(enabled)
         {
@@ -201,6 +245,9 @@ public class EntityPropertiesPanel extends JPanel implements ModelChangeListener
             headingSpinner.setElement(entity.getOrientation());
             initScript.setScript(entity.getInitScript());
             visibleCheckBox.setSelected(entity.isVisible());
+            minimumAltitude.setValue(entity.getMinAltitude());
+            maximumAltitude.setValue(entity.getMaxAltitude());
+            width.setValue(entity.getRouteWidth());
         }
         else
         {
@@ -244,21 +291,82 @@ public class EntityPropertiesPanel extends JPanel implements ModelChangeListener
             return;
         }
         
-        if(e.property.equals(EntityElement.NAME)      || 
-           e.property.equals(EntityElement.PROTOTYPE) ||
-           e.property.equals(EntityElement.FORCE) ||
-           e.property.equals(EntityElement.VISIBLE))
+        if(e.property.equals(EntityElement.ModelData.NAME.xPathStr) ||
+           e.property.equals(EntityElement.ModelData.PROTOTYPE.xPathStr) ||
+           e.property.equals(EntityElement.ModelData.FORCE.xPathStr) ||
+           e.property.equals(EntityElement.ModelData.VISIBLE.xPathStr) ||
+           e.property.equals(EntityElement.ModelData.LABEL_VISIBLE.xPathStr) ||
+           e.property.equals(EntityElement.ModelData.MIN_ALTITUDE.xPathStr) ||
+           e.property.equals(EntityElement.ModelData.MAX_ALTITUDE.xPathStr) ||
+           e.property.equals(EntityElement.ModelData.ROUTE_WIDTH.xPathStr) )
         {
             setEntity(entity); // force an update
+        }
+        
+        //On type change, set visibility to type default, if it exists. 
+        if(e.property.equals(EntityElement.ModelData.PROTOTYPE.xPathStr))
+        {
+            EntityPrototype entityPrototype = services.findService(EntityPrototypeDatabase.class).getPrototype(entity.getPrototype());
+            Object prototypeVisibility = entityPrototype.getProperty(EntityConstants.PROPERTY_VISIBLE);
+            if(prototypeVisibility != null && prototypeVisibility instanceof Boolean) {
+                entity.setVisible((Boolean)prototypeVisibility);
+            }
         }
     }
 
     public void actionPerformed(ActionEvent e)
     {
-        final UndoableEdit edit = entity.setVisible(visibleCheckBox.isSelected());
-        services.findService(UndoService.class).addEdit(edit);
+        if(e.getSource().equals(visibleCheckBox))
+        {
+            final UndoableEdit edit = entity.setVisible(visibleCheckBox.isSelected());
+            services.findService(UndoService.class).addEdit(edit);
+        }
     }
-    
-    
-    
+
+    @Override
+    public void keyTyped(KeyEvent e){}
+    @Override
+    public void keyPressed(KeyEvent e){}
+    @Override
+    public void keyReleased(KeyEvent e){
+        if(e.getSource().equals(minimumAltitude))
+        {
+            try
+            {
+                minimumAltitude.commitEdit();
+            }
+            catch (ParseException e1)
+            {
+                return;
+            }
+            final UndoableEdit edit = entity.setMinAltitude(((Long)minimumAltitude.getValue()).doubleValue());
+            services.findService(UndoService.class).addEdit(edit);
+        }
+        if(e.getSource().equals(maximumAltitude))
+        {
+            try
+            {
+                maximumAltitude.commitEdit();
+            }
+            catch (ParseException e1)
+            {
+                return;
+            }
+            final UndoableEdit edit = entity.setMaxAltitude(((Long)maximumAltitude.getValue()).doubleValue());
+            services.findService(UndoService.class).addEdit(edit);
+        }
+        if(e.getSource().equals(width))
+        {
+            try
+            {
+                width.commitEdit();
+            }
+            catch (ParseException e1)
+            {
+                return;
+            }
+            final UndoableEdit edit = entity.setRouteWidth(((Long)width.getValue()).doubleValue());
+            services.findService(UndoService.class).addEdit(edit);
+        }
+    }
 }

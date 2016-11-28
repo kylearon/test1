@@ -45,7 +45,7 @@ import com.soartech.simjr.ui.editor.UndoService;
  */
 public class DeleteEntityAction extends AbstractEditorAction
 {
-    //private static final Logger logger = Logger.getLogger(DeleteEntityAction.class);
+    //private static final Logger logger = LoggerFactory.getLogger(DeleteEntityAction.class);
     private static final long serialVersionUID = 1L;
     
     /**

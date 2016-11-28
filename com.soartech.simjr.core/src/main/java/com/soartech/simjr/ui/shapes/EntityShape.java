@@ -64,7 +64,7 @@ public class EntityShape implements EntityPropertyListener
 {
     private Entity entity;
     private ShapeSystem system;
-    private Frame frame;
+    protected Frame frame;
     private Frame bodyFrame;
     private Frame shadowFrame;
     private List<Shape> shapes = new ArrayList<Shape>();
@@ -81,9 +81,10 @@ public class EntityShape implements EntityPropertyListener
     private List<LabelFrame> labels = new ArrayList<LabelFrame>();
     public class LabelFrame 
     {
-        public Frame frame;
-        public Text label;
-        public String labelType;
+        public final static String MAIN_LABEL = "_mainLabel";
+        public final Frame frame;
+        public final Text label;
+        public final String labelType;
         
         public LabelFrame(Frame frame, Text label, String labelType)
         {
@@ -107,7 +108,7 @@ public class EntityShape implements EntityPropertyListener
     /**
      * Constructor
      * 
-     * @param entity The enitty represented by the shape
+     * @param entity The entity represented by the shape
      * @param system The shape system
      */
     public EntityShape(Entity entity, ShapeSystem system)
@@ -153,12 +154,40 @@ public class EntityShape implements EntityPropertyListener
                 return true;
             }
         }
+        for (LabelFrame lf : labels)
+        {
+            if (lf.label.hitTest(x, y, tolerance))
+            {
+                return true;
+            }
+        }
         return false;
     }
     
     /**
+     * Return the minimum distance between this shape's components and
+     * the point.
+     * 
+     * @param x The x screen coordinate
+     * @param y The y screen coordinate
+     */
+    public double minDistance(double x, double y)
+    {
+        double min = Double.MAX_VALUE;
+        for(Shape s : hitableShapes)
+        {
+            double d = s.distance(x, y);
+            if (d < min)
+            {
+                min = d;
+            }
+        }
+        return min;
+    }
+    
+    /**
      * Add a shape to be managed by this object. This is typically called by
-     * sub-classes.
+     * sub-classes.  Shapes added with addShape are not hitable.
      * 
      * @param shape The shape.
      */
@@ -173,6 +202,11 @@ public class EntityShape implements EntityPropertyListener
         }
     }
     
+    /**
+     * Add a Shape to the set of Shapes that are tested by hitTest().
+     * 
+     * @param shape Shape to be added to this EntityShape.
+     */
     public void addHitableShape(Shape shape)
     {
         hitableShapes.add(shape);
@@ -180,7 +214,7 @@ public class EntityShape implements EntityPropertyListener
     }
     
     /**
-     * Remove a shape previously added with addShape().
+     * Remove a shape previously added with addShape() or addHitableShape().
      * 
      * @param shape The shape to remove
      */
@@ -212,6 +246,11 @@ public class EntityShape implements EntityPropertyListener
         return bodyFrame;
     }
     
+    /**
+     * Return the frame of the shadow of the EntityShape.
+     * 
+     * @return The Frame of this EntityShape's shadow.
+     */
     public Frame getShadowFrame()
     {
         if(shadowFrame == null)
@@ -234,10 +273,15 @@ public class EntityShape implements EntityPropertyListener
     {
     	return null;
     }
+
+    public List<LabelFrame> getLabels()
+    {
+        return labels;
+    }
     
     public Text createLabel(int xOffset, int yOffset, String text)
     {
-        LabelFrame lf = createLabel(xOffset, yOffset, text, new Color(0xF0, 0xF0, 0xE0), "_mainLabel"); 
+        LabelFrame lf = createLabel(xOffset, yOffset, text, new Color(0xF0, 0xF0, 0xE0), LabelFrame.MAIN_LABEL); 
         
         return lf.label;
     }
@@ -354,7 +398,14 @@ public class EntityShape implements EntityPropertyListener
                         (Boolean) EntityTools.getProperty(entity.getProperties(), 
                                 EntityConstants.PROPERTY_SHAPE_LABEL_VISIBLE, true);
                 
-                if(visible && !labelVisible)
+                boolean displayLabelIfHasParent = (Boolean) EntityTools.getProperty(entity.getProperties(),
+                                EntityConstants.PROPERTY_SHAPE_LABEL_DISPLAYIFPARENT, true);
+                
+                if (!displayLabelIfHasParent && entity.getParent() != null)
+                {
+                    lf.label.setVisible(false);
+                }
+                else if(visible && !labelVisible)
                 {
                     lf.label.setVisible(false);
                 }
@@ -470,7 +521,8 @@ public class EntityShape implements EntityPropertyListener
     public void onPropertyChanged(Entity entity, String propertyName)
     {
         if(EntityConstants.PROPERTY_VISIBLE.equals(propertyName) ||
-           EntityConstants.PROPERTY_SHAPE_LABEL_VISIBLE.equals(propertyName))
+           EntityConstants.PROPERTY_SHAPE_LABEL_VISIBLE.equals(propertyName) ||
+           EntityConstants.PROPERTY_SHAPE_LABEL_DISPLAYIFPARENT.equals(propertyName))
         {
             updateVisibility = true;
         }

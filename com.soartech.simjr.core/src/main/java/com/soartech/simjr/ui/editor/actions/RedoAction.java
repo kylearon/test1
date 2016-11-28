@@ -79,7 +79,7 @@ public class RedoAction extends AbstractEditorAction
         }
         catch(CannotRedoException ex)
         {
-            logger.error("CannotRedoException", ex);
+            logger.error(ex.toString());
             JOptionPane.showMessageDialog(getApplication().getFrame(), "Redo failed: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }

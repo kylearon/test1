@@ -32,6 +32,7 @@
 package com.soartech.simjr.services;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -116,6 +117,7 @@ public class DefaultServiceManager implements ServiceManager
         {
             try
             {
+                logger.info("Starting service: " + r);
                 r.start(new NullProgressMonitor());
             }
             catch (SimulationException e)
@@ -170,6 +172,12 @@ public class DefaultServiceManager implements ServiceManager
                     return null;
                 }
             }
+        }
+        catch (InvocationTargetException e)
+        {
+            logger.error("Failed to construct default instance of '" + klass.getCanonicalName() + "': " + e.getTargetException().getMessage());
+            logger.debug("stack trace", e);
+            return null;
         }
         catch (Exception e)
         {

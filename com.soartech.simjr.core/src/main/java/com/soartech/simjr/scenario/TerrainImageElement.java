@@ -41,6 +41,9 @@ import javax.swing.undo.UndoableEdit;
 import org.jdom.Element;
 import org.jdom.xpath.XPath;
 
+import com.soartech.simjr.scenario.model.Model;
+import com.soartech.simjr.scenario.model.ModelChangeEvent;
+import com.soartech.simjr.scenario.model.ModelElement;
 import com.soartech.simjr.util.FileTools;
 import com.soartech.simjr.util.UndoTools;
 
@@ -149,7 +152,7 @@ public class TerrainImageElement implements ModelElement
     
     public UndoableEdit setImageHref(String href)
     {
-        final UndoableEdit create = getOrCreateImageElement("", 1.0);
+        final UndoableEdit create = getOrCreateImageElement(href, 1.0);
         final UndoableEdit set;
         final String oldHref = getImageHref();
         if(getModel().setText(imageHref, null, href, new ModelChangeEvent(getModel(), this, HREF)))

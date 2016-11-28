@@ -44,6 +44,9 @@ import org.jdom.Element;
 import org.jdom.JDOMException;
 import org.jdom.xpath.XPath;
 
+import com.soartech.simjr.scenario.model.Model;
+import com.soartech.simjr.scenario.model.ModelChangeEvent;
+
 /**
  * @author ray
  */
@@ -68,7 +71,6 @@ public class PointElementList
     
     /**
      * @param model
-     * @param element
      * @param parent
      */
     public PointElementList(Model model, EntityElement parent)

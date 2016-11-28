@@ -31,10 +31,12 @@
  */
 package com.soartech.simjr.sim;
 
+import java.awt.Color;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.lang.reflect.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -301,6 +303,17 @@ public class EntityTools
     }
     
     /**
+     * Set the "label visible" property of the given entity. This is a convenience method for scripting.
+     * 
+     * @param e The entity
+     * @param labelVisible True if the label should be visible, false if not
+     */
+    public static void setLabelVisible(Entity e, boolean labelVisible)
+    {
+        e.setProperty(EntityConstants.PROPERTY_SHAPE_LABEL_VISIBLE, labelVisible);
+    }
+    
+    /**
      * Returns true if the given entity is visible. This is a convenience 
      * method for scripting.
      * 
@@ -380,6 +393,95 @@ public class EntityTools
         {
             return o1.getName().compareTo(o2.getName());
         }
+    }
+    
+    /**
+     * Returns the line color or default line color of an entity as a Color.
+     * 
+     * @param e The entity, def The default color
+     * @return The Color of the entity.
+     */
+    public static Color getLineColor(Entity e, Color def)
+    {
+        return getColorProperty(e, EntityConstants.PROPERTY_SHAPE_LINE_COLOR, def);
+    }
+
+    /**
+     * Returns the fill color or default fill  color of an entity as a Color.
+     * 
+     * @param e The entity, def The default color
+     * @return The Color of the entity.
+     */
+    public static Color getFillColor(Entity e, Color def)
+    {
+        return getColorProperty(e, EntityConstants.PROPERTY_SHAPE_FILL_COLOR, def);
+    }
+    
+    /**
+     * Returns a property value of type color for the specified entity and property name.
+     * 
+     * @param e The entity to retrieve the color property for
+     * @param propname Name of the property to retrieve
+     * @param def The default color to use if no color property can be retrieved
+     * @return The color specified by the property or the default value if one can't be retrieved
+     */
+    public static Color getColorProperty(Entity e, String propName, Color def)
+    {
+        Object obj = e.getProperty(propName);
+
+        if ( obj instanceof Color )
+        {
+            return (Color) obj;
+        }
+        else if ( obj instanceof String )
+        {
+            String colorStr = (String) obj;
+            Color entityColor = getColorByName(colorStr);
+            if (entityColor != null) { 
+                return entityColor; 
+            }
+            
+            entityColor = getColorByCode(colorStr);
+            if (entityColor != null) { 
+                return entityColor; 
+            }
+        }
+        
+        // If we make it here then all we can do is return the default
+        return def;
+    }
+    
+    /**
+     * Attempt to parse the given color string as a java.awt.Color
+     * @param colorName, e.g. "red"
+     * @return the Color object associated with the name, or null if not found
+     */
+    private static Color getColorByName(String colorName) 
+    {
+        Color c = null;
+        try {
+            Field field = Color.class.getField(colorName);
+            c = (Color)field.get(null);
+        } catch (Exception E){
+            //Color not found
+        }
+        return c;
+    }
+    
+    /**
+     * Attempt to parse the given color string as a java.awt.Color
+     * @param colorCode, e.g. #00FF00
+     * @return the Color object associated with the code, or null if not found
+     */
+    private static Color getColorByCode(String colorCode)
+    {
+        Color c = null;
+        try {
+            c = new Color(Integer.parseInt(colorCode, 16));
+        } catch (Exception E) {
+            // Color not found
+        }
+        return c;
     }
 
     public static <T extends Sensor> T getSensorOfType(Entity entity, Class<T> sensorClass)

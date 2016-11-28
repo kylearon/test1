@@ -45,18 +45,21 @@ import com.soartech.math.geotrans.Geodetic;
 import com.soartech.simjr.ProgressMonitor;
 import com.soartech.simjr.SimulationException;
 import com.soartech.simjr.adaptables.Adaptables;
+import com.soartech.simjr.controllers.EntityFollower;
 import com.soartech.simjr.scenario.EntityElement;
-import com.soartech.simjr.scenario.Model;
-import com.soartech.simjr.scenario.ModelException;
 import com.soartech.simjr.scenario.ScriptBlockElement;
 import com.soartech.simjr.scenario.TerrainImageElement;
 import com.soartech.simjr.scenario.TerrainTypeElement;
+import com.soartech.simjr.scenario.model.ModelException;
+import com.soartech.simjr.scenario.model.ModelService;
 import com.soartech.simjr.scripting.ScriptRunSettings;
 import com.soartech.simjr.scripting.ScriptRunner;
 import com.soartech.simjr.services.ServiceManager;
 import com.soartech.simjr.sim.entities.AbstractPolygon;
 import com.soartech.simjr.ui.cheatsheets.CheatSheetView;
+import com.soartech.simjr.ui.pvd.PvdView;
 import com.soartech.simjr.ui.pvd.MapImage;
+import com.soartech.simjr.ui.pvd.PlanViewDisplay;
 import com.soartech.simjr.ui.pvd.PlanViewDisplayProvider;
 
 /**
@@ -67,7 +70,7 @@ public class ScenarioLoader
     private static final Logger logger = LoggerFactory.getLogger(ScenarioLoader.class);
     private final ServiceManager services;
     
-    private Model model;
+    private ModelService model;
     
     public ScenarioLoader(ServiceManager services)
     {
@@ -83,15 +86,20 @@ public class ScenarioLoader
      */
     public void loadScenario(File file, ProgressMonitor progress) throws SimulationException
     {
-        this.model = new Model();
+        this.model = services.findService(ModelService.class);
+        if(this.model == null)
+        {
+            this.model = new ModelService(services);
+            services.addService(this.model);
+        }
         try
         {
             logger.info("Loading scenario from '" + file + "'");
-            model.load(file);
+            model.getModel().load(file);
             initializeTerrain(progress);
-            runPrePostLoadScript(progress, model.getPreLoadScript(), "pre");
+            runPrePostLoadScript(progress, model.getModel().getPreLoadScript(), "pre");
             loadEntities(progress);
-            runPrePostLoadScript(progress, model.getPostLoadScript(), "post");
+            runPrePostLoadScript(progress, model.getModel().getPostLoadScript(), "post");
             loadCheatSheet();
             logger.info("Finished loading scenario.");
         }
@@ -112,16 +120,16 @@ public class ScenarioLoader
      * @param progress 
      * @throws SimulationException
      */
-    public void loadScenario(Model model, ProgressMonitor progress) throws SimulationException
+    public void loadScenario(ProgressMonitor progress) throws SimulationException
     {
-        this.model = model;
+        this.model = services.findService(ModelService.class);
         try
         {
-            logger.info("Loading scenario from '" + model.getFile() + "'");
+            logger.info("Loading scenario from '" + model.getModel().getFile() + "'");
             initializeTerrain(progress);
-            runPrePostLoadScript(progress, model.getPreLoadScript(), "pre");
+            runPrePostLoadScript(progress, model.getModel().getPreLoadScript(), "pre");
             loadEntities(progress);
-            runPrePostLoadScript(progress, model.getPostLoadScript(), "post");
+            runPrePostLoadScript(progress, model.getModel().getPostLoadScript(), "post");
             loadCheatSheet();
             logger.info("Finished loading scenario.");
         }
@@ -134,11 +142,11 @@ public class ScenarioLoader
     private void initializeTerrain(ProgressMonitor progress)
     {
         final Geodetic.Point origin = new Geodetic.Point();
-        origin.latitude = Math.toRadians(model.getTerrain().getOriginLatitude());
-        origin.longitude = Math.toRadians(model.getTerrain().getOriginLongitude());
+        origin.latitude = Math.toRadians(model.getModel().getTerrain().getOriginLatitude());
+        origin.longitude = Math.toRadians(model.getModel().getTerrain().getOriginLongitude());
         final Simulation sim = services.findService(Simulation.class);
         
-        final TerrainTypeElement tte = model.getTerrain().getTerrainType();
+        final TerrainTypeElement tte = model.getModel().getTerrain().getTerrainType();
         File href = null;
         if (tte != null && tte.hasTerrainType())
         {
@@ -153,9 +161,26 @@ public class ScenarioLoader
         loadTerrainImages(sim, detailedTerrain);
     }
 
+    private PvdView findPvdView()
+    {
+        PlanViewDisplayProvider pvdPro = services.findService(PlanViewDisplayProvider.class);
+        if (pvdPro == null)
+        {
+            return null;
+        }
+        
+        PlanViewDisplay pvd = pvdPro.getActivePlanViewDisplay();
+        if (pvd == null)
+        {
+            return null;
+        }
+        
+        return pvd.getView();
+    }
+    
     private void loadTerrainImages(Simulation sim, DetailedTerrain detailedTerrain)
     {
-        final TerrainImageElement tie = model.getTerrain().getImage();
+        final TerrainImageElement tie = model.getModel().getTerrain().getImage();
         if (!tie.hasImage())
         {
             return;
@@ -166,11 +191,11 @@ public class ScenarioLoader
         final Vector3 origin = sim.getTerrain().fromGeodetic(tie.getLocation().toRadians());
         detailedTerrain.setCoordinateFrame(origin, tie.getImageMetersPerPixel());
         
-        final PlanViewDisplayProvider pvdPro = services.findService(PlanViewDisplayProvider.class);
-        if (pvdPro != null && pvdPro.getActivePlanViewDisplay() != null)
+        PvdView pvdView = findPvdView();
+        if (pvdView != null)
         {
         	final MapImage image = new MapImage(href, origin, tie.getImageMetersPerPixel());
-            pvdPro.getActivePlanViewDisplay().setMapImage(image);
+        	pvdView.setMapImage(image);
         }
         
         BufferedImage terrainImage = detailedTerrain.getTerrainImage();
@@ -181,9 +206,9 @@ public class ScenarioLoader
         
         logger.info("Using terrain image.");
         
-        if (pvdPro != null && pvdPro.getActivePlanViewDisplay() != null)
+        if (pvdView != null)
         {
-            MapImage mi = pvdPro.getActivePlanViewDisplay().getMapImage();
+            MapImage mi = pvdView.getMapImage();
             mi.setCenterMeters(1, origin);
             mi.setMetersPerPixel(1, tie.getImageMetersPerPixel());
             mi.setImage(1, terrainImage);
@@ -193,7 +218,7 @@ public class ScenarioLoader
 
     private String getScriptPath(String name)
     {
-        return model.getFile() + "#" + name;
+        return model.getModel().getFile() + "#" + name;
     }
     
     private String getScriptPath(EntityElement element)
@@ -215,7 +240,7 @@ public class ScenarioLoader
                     progress(progress).
                     reader(new StringReader(script)).
                     path(getScriptPath(type)).
-                    pushFile(model.getFile()). // make sure relative file refs work
+                    pushFile(model.getModel().getFile()). // make sure relative file refs work
                     run(runner);
             }
             catch (Exception e)
@@ -227,7 +252,7 @@ public class ScenarioLoader
     
     private void loadEntities(ProgressMonitor progress) throws SimulationException
     {
-        final List<EntityElement> entities = model.getEntities().getEntities();
+        final List<EntityElement> entities = model.getModel().getEntities().getEntities();
         int current = 1;
         for(EntityElement ee : entities)
         {
@@ -252,6 +277,9 @@ public class ScenarioLoader
         // Visible
         EntityTools.setVisible(entity, ee.isVisible());
         
+        // Label visibility
+        EntityTools.setLabelVisible(entity, ee.isLabelVisible());
+        
         // Force
         entity.setProperty(EntityConstants.PROPERTY_FORCE, ee.getForce());
         
@@ -268,6 +296,20 @@ public class ScenarioLoader
         if(polygon != null)
         {
             polygon.setPointNames(ee.getPoints().getPoints());
+        }
+        
+        //3D data stuff
+        entity.setProperty(EntityConstants.PROPERTY_SHAPE_WIDTH_PIXELS, 5); // make
+        entity.setProperty(EntityConstants.PROPERTY_MINALTITUDE, ee.getMinAltitude());
+        entity.setProperty(EntityConstants.PROPERTY_MAXALTITUDE, ee.getMaxAltitude());
+        entity.setProperty(EntityConstants.PROPERTY_SHAPE_WIDTH_METERS, ee.getRouteWidth());
+        entity.setProperty(EntityConstants.PROPERTY_SHAPE_ENTITY_WIDTH_METERS, ee.getEntityWidth());
+        entity.setProperty(EntityConstants.PROPERTY_SHAPE_ENTITY_LENGTH_METERS, ee.getEntityLength());
+        
+        //Capabilities
+        if(ee.getCapabilities().getFollowTarget() != null) {
+            final EntityFollower follower = new EntityFollower(ee.getCapabilities().getFollowTarget());
+            entity.addCapability(follower);
         }
         
         runEntityInitScript(ee, entity);
@@ -287,7 +329,7 @@ public class ScenarioLoader
                 ScriptRunSettings.builder().
                 reader(new StringReader(script)).
                 path(getScriptPath(element)).
-                pushFile(model.getFile()). // make sure relative file refs work
+                pushFile(model.getModel().getFile()). // make sure relative file refs work
                 property("self", entity).
                 run(runner);
             }
@@ -300,12 +342,12 @@ public class ScenarioLoader
 
     private void loadCheatSheet()
     {
-        if(model.getFile() == null)
+        if(model.getModel().getFile() == null)
         {
             return;
         }
         
-        final File cheatSheetFile = new File(model.getFile().getParentFile(), "cheatsheet.html");
+        final File cheatSheetFile = new File(model.getModel().getFile().getParentFile(), "cheatsheet.html");
         if(cheatSheetFile.exists())
         {
             final CheatSheetView csv = CheatSheetView.findService(services);

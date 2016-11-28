@@ -108,8 +108,8 @@ public class AllTests
             TerrainElementTest.class,
             TerrainImageElementTest.class,
             
-//            DefaultScriptProviderManagerTest.class,
-//            ResourceScriptProviderTest.class,
+            //DefaultScriptProviderManagerTest.class,
+            //ResourceScriptProviderTest.class,
             ScriptRunnerTest.class,
             
             DefaultServiceManagerTest.class,

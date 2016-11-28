@@ -95,7 +95,7 @@ public class Simulation extends AbstractAdaptable implements SimulationService
     }
     
     private List<TimerEntry> timers = new ArrayList<TimerEntry>();
-    
+    private List<TimerEntry> newTimers = new ArrayList<TimerEntry>();
     /**
      * Construct a new simulation and start a {@link SimulationThread} to run it.
      * The simulation is initially paused.
@@ -112,7 +112,7 @@ public class Simulation extends AbstractAdaptable implements SimulationService
      * 
      * @param terrain the terrain to use
      * @param startThread if true, a {@link SimulationThread} is also created and started.
-     *  If false, no thread is created and the called must manually {@link #tick(double)}
+     *  If false, no thread is created and the caller must manually {@link #tick(double)}
      *  the sim.
      */
     public Simulation(Terrain terrain, boolean startThread)
@@ -276,8 +276,8 @@ public class Simulation extends AbstractAdaptable implements SimulationService
     /**
      * Looks up an entity by name, and assumes that the simulation lock is held.
      * 
-     * @param the name of the entity
-     * @return the entity with the corresponding name or null if none exists
+     * @param name The name of the entity
+     * @return The entity with the corresponding name or null if none exists
      */
     public Entity getEntityFast(String name)
     {
@@ -424,7 +424,7 @@ public class Simulation extends AbstractAdaptable implements SimulationService
             e.runnable = runnable;
             e.repeat = repeat;
           
-            timers.add(e);
+            newTimers.add(e);
         }
     }
     
@@ -451,7 +451,6 @@ public class Simulation extends AbstractAdaptable implements SimulationService
         synchronized (lock)
         {
             time.set(time.get() + dt);
-            
             // Entities may be removed/added during this loop, but we're using
             // CopyOnWrite array list so it's ok.
             for(Entity e : entities)
@@ -473,21 +472,26 @@ public class Simulation extends AbstractAdaptable implements SimulationService
      */
     private void updateTimers()
     {
-        final Iterator<TimerEntry> it = timers.iterator();
-        while(it.hasNext())
+        synchronized(lock)
         {
-            final TimerEntry te = it.next();
-            if(time.get() >= te.time)
+            timers.addAll(newTimers);
+            newTimers.clear();
+            final Iterator<TimerEntry> it = timers.iterator();
+            while(it.hasNext())
             {
-                if(!te.repeat)
+                final TimerEntry te = it.next();
+                if(time.get() >= te.time)
                 {
-                    it.remove();
+                    if(!te.repeat)
+                    {
+                        it.remove();
+                    }
+                    else
+                    {
+                        te.time = te.time + te.period;
+                    }
+                    te.runnable.run();
                 }
-                else
-                {
-                    te.time = te.time + te.period;
-                }
-                te.runnable.run();
             }
         }
     }

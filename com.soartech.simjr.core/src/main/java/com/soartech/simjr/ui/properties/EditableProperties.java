@@ -54,6 +54,7 @@ public class EditableProperties
         new DefaultEditableProperty(EntityConstants.PROPERTY_LOCKED),
         new DefaultComboBoxProperty(EntityConstants.PROPERTY_DAMAGE, DamageStatus.values()),
         new DefaultEditableProperty(EntityConstants.PROPERTY_SHAPE_LABEL_VISIBLE),
+        new DefaultEditableProperty(EntityConstants.PROPERTY_SHAPE_LABEL_DISPLAYIFPARENT),
         new DefaultEditableProperty(EntityConstants.PROPERTY_VISIBLE_RANGE_VISIBLE),
         new DefaultEditableProperty(EntityConstants.PROPERTY_RADAR_VISIBLE),
         new DefaultComboBoxProperty(EntityConstants.PROPERTY_FORCE, EntityConstants.ALL_FORCES),
@@ -116,7 +117,7 @@ public class EditableProperties
         
         public TableCellEditor getEditor()
         {
-            JComboBox cb = new JComboBox(values);
+            JComboBox<Object> cb = new JComboBox<Object>(values);
             return new DefaultCellEditor(cb);
         }
     }

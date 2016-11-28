@@ -39,17 +39,18 @@ import javax.swing.JPanel;
 import javax.swing.JSplitPane;
 import javax.swing.SwingUtilities;
 
-import com.soartech.simjr.scenario.Model;
-import com.soartech.simjr.scenario.ModelChangeEvent;
-import com.soartech.simjr.scenario.ModelChangeListener;
+import bibliothek.gui.dock.common.DefaultSingleCDockable;
+
+import com.soartech.simjr.scenario.model.Model;
+import com.soartech.simjr.scenario.model.ModelChangeEvent;
+import com.soartech.simjr.scenario.model.ModelChangeListener;
 
 /**
  * @author ray
+ * Edited to interop with the Dockable Framework - JHaley
  */
-public class ScriptsPanel extends JPanel implements ModelChangeListener
+public class ScriptsPanel extends DefaultSingleCDockable implements ModelChangeListener
 {
-    private static final long serialVersionUID = 7341341823156862606L;
-
     private final Model model;
     private final ScriptEditPanel preLoad;
     private final ScriptEditPanel postLoad;
@@ -59,7 +60,17 @@ public class ScriptsPanel extends JPanel implements ModelChangeListener
      */
     public ScriptsPanel(ScenarioEditorServiceManager app)
     {
-        super(new BorderLayout());
+        super("Scripts Panel");
+        
+
+        //DF settings
+        setLayout(new BorderLayout());
+        setCloseable(true);
+        setMinimizable(true);
+        setExternalizable(true);
+        setMaximizable(true);
+        setTitleText("Scripts");
+        setResizeLocked(true);
         
         this.model = app.getModel();
         this.preLoad = new ScriptEditPanel(app.findService(UndoService.class), -1);

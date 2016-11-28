@@ -44,11 +44,11 @@ public class AboutDialog
         // Someday we'll make a fancy about box. For now, this will do.
         String message = "<html>" + 
         "<b>Sim Jr. Technology Demonstration Environment</b><br>" +
-        "Copyright 2007-2009, Soar Technology, Inc. All rights reserved.<br>" +
+        "Copyright 2007-2014, Soar Technology, Inc. All rights reserved.<br>" +
         "<br>" +
+
         "</html>";
         JOptionPane.showMessageDialog(parent, message, "About Sim Jr.", 
                                       JOptionPane.PLAIN_MESSAGE);
     }
-    
 }

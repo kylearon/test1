@@ -28,7 +28,6 @@
 
 # Prototype fragments which add shape and other UI info to prototypes.
 # 
-
 prototypes:
 - &any
     id: any
@@ -47,30 +46,78 @@ prototypes:
     properties:
         shape: !!com.soartech.simjr.ui.shapes.RouteShape$Factory []
         category: Routes
-    
+        
+- &cylinder
+    id: cylinder
+    properties:
+        shape: !!com.soartech.simjr.ui.shapes.CircularRegionShape$Factory []
+        category: Cylinder
+        
+- &Special_use_airspace-cylinder
+    id: Special_use_airspace-cylinder
+    properties:
+        shape: !!com.soartech.simjr.ui.shapes.CircularRegionShape$Factory []
+        category: Cylinder
+        
+- &ROZ-cylinder
+    id: ROZ-cylinder
+    properties:
+        shape: !!com.soartech.simjr.ui.shapes.CircularRegionShape$Factory []
+        category: Cylinder
+        
+- &SAAFR
+    id: SAAFR
+    properties:
+        shape: !!com.soartech.simjr.ui.shapes.RouteShape$Factory []
+        category: Routes
+- &AIRCOR
+    id: AIRCOR
+    properties:
+        shape: !!com.soartech.simjr.ui.shapes.RouteShape$Factory []
+        category: Routes
+- &ROZ
+    id: ROZ
+    properties:
+        shape: !!com.soartech.simjr.ui.shapes.AreaShape$SimpleHullFactory []
+        category: Areas  
+                
+- &Special_use_airspace
+    id: Special_use_airspace
+    properties:
+        shape: !!com.soartech.simjr.ui.shapes.AreaShape$SimpleHullFactory []
+        category: Areas   
 - &area
     id: area
     properties:
+        shape.label.displayIfParent: false
         shape: !!com.soartech.simjr.ui.shapes.AreaShape$SimpleHullFactory []
         category: Areas
         
 - &complex-area
     id: complex-area
     properties:
+        shape.label.displayIfParent: false
         shape: !!com.soartech.simjr.ui.shapes.AreaShape$ComplexHullFactory []
         category: Areas
         
 - &complex-area-static
     id: complex-area-static
     properties:
+        shape.label.displayIfParent: false
         shape: !!com.soartech.simjr.ui.shapes.AreaShape$ComplexHullFactory []
         category: Areas 
         
 - &compound-area
     id: compound-area
     properties:
+        shape.label.displayIfParent: false
         shape: !!com.soartech.simjr.ui.shapes.CompoundAreaShape$CompoundAreaShapeFactory []
         category: CompoundAreas 
+        
+- &fixed-size-ground
+    id: fixed-size-ground
+    properties:
+        shape: !!com.soartech.simjr.ui.shapes.FixedSizeEntityShape$Factory []
 
 ###############################################################################
 
@@ -83,7 +130,6 @@ prototypes:
     id: missile
     properties:
         shape: !!com.soartech.simjr.ui.shapes.MissileShape$Factory []
-
 
 - &bomb
     id: bomb
@@ -103,6 +149,11 @@ prototypes:
     id: truck
     properties:
         shape: !!com.soartech.simjr.ui.shapes.TruckShape$Factory []
+
+- &ugv
+    id: ugv
+    properties:
+        shape: !!com.soartech.simjr.ui.shapes.TruckShape$Factory []
         
 - &tank
     id: tank
@@ -114,6 +165,16 @@ prototypes:
     properties:
         shape: !!com.soartech.simjr.ui.shapes.MobileSAMShape$Factory []
 
+- &aaa
+    id: aaa
+    properties:
+        shape: !!com.soartech.simjr.ui.shapes.MobileSAMShape$Factory []
+
+- &scud
+    id: scud
+    properties:
+        shape: !!com.soartech.simjr.ui.shapes.TruckShape$Factory []
+
 ###############################################################################
 - &water-tower
     id: water-tower
@@ -124,3 +185,31 @@ prototypes:
     id: telecom-tower
     properties:
         shape: !!com.soartech.simjr.ui.shapes.ImageEntityShape$Factory [simjr/images/shapes/entities/structure/telecom-tower-neutral.png, "", "" ]
+        
+- &role
+    id: role
+    properties:
+        shape: !!com.soartech.simjr.ui.shapes.RoleShape$Factory []
+        
+- &atc-aic
+    id: atc-aic
+    properties:
+        shape: !!com.soartech.simjr.ui.shapes.TruckShape$Factory []
+        
+- &atc-adam-cell
+    id: atc-adam-cell
+    properties:
+        shape: !!com.soartech.simjr.ui.shapes.TruckShape$Factory []
+### Groups ##################################################################
+- &group
+    id: group
+    properties:
+        shape: !!com.soartech.simjr.ui.shapes.GroupContainerShape$Factory []
+        category: Humans
+        
+- &building
+    id: building
+    properties:
+        shape.label.displayIfParent: false
+        shape: !!com.soartech.simjr.ui.shapes.BuildingShape$Factory []
+        category: Areas

@@ -57,7 +57,7 @@ public class SensorFactory
             }
             catch (IOException e)
             {
-                logger.error("IOException", e);
+                logger.error(e.toString());
             }
             finally
             {

@@ -40,8 +40,8 @@ import javax.swing.KeyStroke;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.soartech.simjr.scenario.Model;
-import com.soartech.simjr.scenario.ModelException;
+import com.soartech.simjr.scenario.model.Model;
+import com.soartech.simjr.scenario.model.ModelException;
 import com.soartech.simjr.ui.SimulationImages;
 import com.soartech.simjr.ui.actions.ActionManager;
 import com.soartech.simjr.util.FileTools;
@@ -61,9 +61,9 @@ public class SaveAction extends AbstractEditorAction
     private boolean saveAs;
     
     /**
+     * 
      * @param manager
-     * @param label
-     * @param icon
+     * @param saveAs True if performing a "Save As...", false if performing a "Save".
      */
     public SaveAction(ActionManager manager, boolean saveAs)
     {
@@ -120,7 +120,7 @@ public class SaveAction extends AbstractEditorAction
         catch (ModelException e1)
         {
             getApplication().showError("Error saving file", e1);
-            logger.error("ModelException", e1);
+            logger.error(e1.toString());
         }
     }
 

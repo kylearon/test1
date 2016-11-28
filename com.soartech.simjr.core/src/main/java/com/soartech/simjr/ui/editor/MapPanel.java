@@ -39,12 +39,11 @@ import java.util.List;
 import java.util.Set;
 
 import javax.swing.Action;
-import javax.swing.BorderFactory;
-import javax.swing.JPanel;
-import javax.swing.JSplitPane;
-import javax.swing.SwingUtilities;
+import javax.swing.JComponent;
 import javax.swing.undo.CompoundEdit;
 import javax.swing.undo.UndoableEdit;
+
+import bibliothek.gui.dock.common.DefaultSingleCDockable;
 
 import com.soartech.math.Angles;
 import com.soartech.math.Vector3;
@@ -55,14 +54,14 @@ import com.soartech.simjr.adaptables.Adaptables;
 import com.soartech.simjr.scenario.EntityElement;
 import com.soartech.simjr.scenario.EntityElementList;
 import com.soartech.simjr.scenario.LocationElement;
-import com.soartech.simjr.scenario.Model;
-import com.soartech.simjr.scenario.ModelChangeEvent;
-import com.soartech.simjr.scenario.ModelChangeListener;
-import com.soartech.simjr.scenario.ModelElement;
 import com.soartech.simjr.scenario.OrientationElement;
 import com.soartech.simjr.scenario.PointElementList;
 import com.soartech.simjr.scenario.TerrainElement;
 import com.soartech.simjr.scenario.TerrainImageElement;
+import com.soartech.simjr.scenario.model.Model;
+import com.soartech.simjr.scenario.model.ModelChangeEvent;
+import com.soartech.simjr.scenario.model.ModelChangeListener;
+import com.soartech.simjr.scenario.model.ModelElement;
 import com.soartech.simjr.sim.Entity;
 import com.soartech.simjr.sim.EntityConstants;
 import com.soartech.simjr.sim.EntityPropertyListener;
@@ -77,47 +76,68 @@ import com.soartech.simjr.sim.entities.DefaultPolygon;
 import com.soartech.simjr.ui.ObjectContextMenu;
 import com.soartech.simjr.ui.SelectionManager;
 import com.soartech.simjr.ui.SelectionManagerListener;
+import com.soartech.simjr.ui.SimulationImages;
 import com.soartech.simjr.ui.editor.actions.ClearTerrainImageAction;
 import com.soartech.simjr.ui.editor.actions.NewEntityAction;
 import com.soartech.simjr.ui.editor.actions.SetTerrainImageAction;
+import com.soartech.simjr.ui.pvd.PvdController;
 import com.soartech.simjr.ui.pvd.MapImage;
 import com.soartech.simjr.ui.pvd.PlanViewDisplay;
 import com.soartech.simjr.ui.pvd.PlanViewDisplayProvider;
+import com.soartech.simjr.ui.pvd.DefaultPvdController;
+import com.soartech.simjr.ui.pvd.PvdView;
 
 /**
  * @author ray
+ * Modified to support the dockable framework  ~ Joshua Haley
  */
-public class MapPanel extends JPanel implements ModelChangeListener, SelectionManagerListener, PlanViewDisplayProvider, TerrainImageListener
+public class MapPanel extends DefaultSingleCDockable implements ModelChangeListener, SelectionManagerListener, PlanViewDisplayProvider, TerrainImageListener
 {
-    private static final long serialVersionUID = -6829507868179277224L;
-    
     private static final String EDITOR_ENTITY_PROP = MapPanel.class.getCanonicalName() + ".editorEntity";
     private final ScenarioEditorServiceManager app;
     private final Simulation sim;
+    
     private final PlanViewDisplay pvd;
+    private final PvdView pvdView;
+    private final PvdController pvdController;
+    private final JComponent pvdComponent;
+    
     private final Set<Entity> movedEntities = new HashSet<Entity>();
     private final EntityPropertiesPanel propsPanel;
 
-    public MapPanel(ScenarioEditorServiceManager app)
+    public MapPanel(ScenarioEditorServiceManager app, EntityPropertiesPanel props)
     {
-        super(new BorderLayout());
+        super("MapPanel");
+        
+        this.propsPanel = props;
+        
+        //DF settings
+        setLayout(new BorderLayout());
+        setCloseable(true);
+        setMinimizable(true);
+        setExternalizable(true);
+        setMaximizable(true);
+        setTitleText("Map Panel");
+        setResizeLocked(true);
+        setTitleIcon(SimulationImages.PVD);
         
         this.app = app;
         this.sim = app.findService(Simulation.class);
         
-        this.pvd = new PlanViewDisplay(app, null) {
-
-            private static final long serialVersionUID = 2647338467484833244L;
-
+        this.pvd = new PlanViewDisplay(app, new DefaultPvdController() {
             @Override
             protected void dragFinished()
             {
                 super.dragFinished();
                 updateEditorEntityPositionsAfterDrag();
             }
-        };
+        });
         
-        this.pvd.setContextMenu(new ObjectContextMenu(app) {
+        pvdView = pvd.getView();
+        pvdController = pvd.getController();
+        pvdComponent = pvdView.getComponent();
+        
+        pvdController.setContextMenu(new ObjectContextMenu(app) {
 
             private static final long serialVersionUID = -5454693942029564642L;
 
@@ -125,13 +145,14 @@ public class MapPanel extends JPanel implements ModelChangeListener, SelectionMa
             protected List<Action> getAdditionalActions()
             {
                 List<Action> actions = super.getAdditionalActions();
-                final Point contextPoint = pvd.getContextMenuPoint();
-                final Vector3 meters = pvd.getTransformer().screenToMeters((double)contextPoint.x, (double) contextPoint.y);
+                final Point contextPoint = pvdController.getContextMenuPoint();
+                final Vector3 meters = pvdView.getTransformer().screenToMeters((double)contextPoint.x, (double) contextPoint.y);
                 final Geodetic.Point lla = sim.getTerrain().toGeodetic(meters);
                 actions.add(new NewEntityAction(getActionManager(), "New Entity", "any", lla));
                 actions.add(new NewEntityAction(getActionManager(), "New Waypoint", "waypoint", lla));
                 actions.add(new NewEntityAction(getActionManager(), "New Route", "route", lla));
                 actions.add(new NewEntityAction(getActionManager(), "New Area", "area", lla));
+                actions.add(new NewEntityAction(getActionManager(), "New Circular Region", "cylinder", lla));
                 actions.add(null);
                 actions.add(new SetTerrainImageAction(getActionManager()));
                 actions.add(new ClearTerrainImageAction(getActionManager()));
@@ -140,38 +161,13 @@ public class MapPanel extends JPanel implements ModelChangeListener, SelectionMa
         
         SelectionManager.findService(app).addListener(this);
         
-        addOverview();
-        
-        propsPanel = new EntityPropertiesPanel(app, app.getModel());
-        propsPanel.setBorder(BorderFactory.createTitledBorder("Entity Properties"));
-        
-        final JSplitPane split = new JSplitPane(JSplitPane.VERTICAL_SPLIT, pvd, propsPanel);
-        split.setDividerSize(5);
-        split.setResizeWeight(0.95);
-        
-        add(split, BorderLayout.CENTER);
+        add(pvdComponent);
         
         this.app.addService(this); // So PVD actions can access
         this.app.getModel().addModelChangeListener(this);
         
-        SwingUtilities.invokeLater(new Runnable() { public void run() {split.setDividerLocation(0.7); }});
     }
     
-    private void addOverview()
-    {
-        final JPanel panel = new JPanel(new BorderLayout());
-        
-        final OverviewPanel overview = new OverviewPanel(app);
-        overview.setBorder(BorderFactory.createTitledBorder("Overview"));
-        panel.add(overview, BorderLayout.CENTER);
-        
-        final TerrainPanel terrain = new TerrainPanel(app);
-        terrain.setBorder(BorderFactory.createTitledBorder("Terrain"));
-        panel.add(terrain, BorderLayout.EAST);
-        
-        add(panel, BorderLayout.NORTH);
-    }
-
     public PlanViewDisplay getActivePlanViewDisplay()
     {
         return pvd;
@@ -244,16 +240,28 @@ public class MapPanel extends JPanel implements ModelChangeListener, SelectionMa
             final EntityElement ee = ((OrientationElement) e.source).getEntity();
             updateSimEntityOrientation(ee);
         }
-        else if(e.property.equals(EntityElement.NAME) || e.property.equals(EntityElement.PROTOTYPE))
+        else if(e.property.equals(EntityElement.ModelData.NAME.propertyName) || e.property.equals(EntityElement.ModelData.PROTOTYPE.propertyName))
         {
             // :( We have to destroy and recreate the sim entity for a rename or type change
             destroySimEntityForRemovedEditorEntity((EntityElement) e.source);
             createSimEntityForNewEditorEntity((EntityElement) e.source);
             updateSimEntityPosition((EntityElement) e.source);
         }
-        else if(e.property.equals(EntityElement.FORCE))
+        else if(e.property.equals(EntityElement.ModelData.FORCE.propertyName))
         {
             updateSimEntityForce((EntityElement) e.source);
+        }
+        else if(e.property.equals(EntityElement.ModelData.MIN_ALTITUDE.propertyName))
+        {
+            updateSimEntityMinAltitude((EntityElement) e.source);
+        }
+        else if(e.property.equals(EntityElement.ModelData.MAX_ALTITUDE.propertyName))
+        {
+            updateSimEntityMaxAltitude((EntityElement) e.source);
+        }
+        else if(e.property.equals(EntityElement.ModelData.ROUTE_WIDTH.propertyName))
+        {
+            updateSimEntityRouteWidth((EntityElement) e.source);
         }
         else if(e.property.equals(TerrainElement.ORIGIN))
         {
@@ -284,18 +292,18 @@ public class MapPanel extends JPanel implements ModelChangeListener, SelectionMa
     
     private MapImage ensureMapImageExists(TerrainImageElement tie)
     {
-        if(pvd.getMapImage() == null)
+        if(pvdView.getMapImage() == null)
         {
             final MapImage mi = new MapImage();
             mi.setImage(tie.getImageFile());
             mi.setMetersPerPixel(tie.getImageMetersPerPixel());
             mi.setCenterMeters(sim.getTerrain().fromGeodetic(tie.getLocation().toRadians()));
-            pvd.setMapImage(mi);
+            pvdView.setMapImage(mi);
             final TerrainImageEntity entity = new TerrainImageEntity("@@@___TERRAIN___@@@", this);
             entity.setPosition(mi.getCenterMeters());
             sim.addEntity(entity);
         }
-        return pvd.getMapImage();
+        return pvdView.getMapImage();
     }
 
     private TerrainImageEntity getTerrainImageEntity(TerrainImageElement tie)
@@ -306,8 +314,8 @@ public class MapPanel extends JPanel implements ModelChangeListener, SelectionMa
     @Override
     public void terrainImageMoved(TerrainImageEntity tie)
     {
-        this.pvd.getMapImage().setCenterMeters(tie.getPosition());
-        if(pvd.isDraggingEntity())
+        pvdView.getMapImage().setCenterMeters(tie.getPosition());
+        if(pvdView.isDraggingEntity())
         {
             movedEntities.add(tie);
         }
@@ -317,7 +325,7 @@ public class MapPanel extends JPanel implements ModelChangeListener, SelectionMa
     {
         if(property.equals(Model.LOADED) && source.hasImage())
         {
-            pvd.setMapImage(null);
+            pvdView.setMapImage(null);
             ensureMapImageExists(source);
         }
         else if(property.equals(LocationElement.LOCATION))
@@ -338,7 +346,7 @@ public class MapPanel extends JPanel implements ModelChangeListener, SelectionMa
         else if(property.equals(TerrainImageElement.REMOVED))
         {
             sim.removeEntity(getTerrainImageEntity(source));
-            pvd.setMapImage(null);
+            pvdView.setMapImage(null);
         }
     }
 
@@ -362,13 +370,31 @@ public class MapPanel extends JPanel implements ModelChangeListener, SelectionMa
         final Terrain newTerrain = new SimpleTerrain(origin);
         sim.setTerrain(newTerrain);
         
-        pvd.showPosition(Vector3.ZERO);
+        pvdView.showPosition(Vector3.ZERO);
     }
     
     private void updateSimEntityForce(final EntityElement ee)
     {
         final Entity simEntity = getSimEntity(ee);
         simEntity.setProperty(EntityConstants.PROPERTY_FORCE, ee.getForce());
+    }
+    
+    private void updateSimEntityMinAltitude(final EntityElement ee)
+    {
+        final Entity simEntity = getSimEntity(ee);
+        simEntity.setProperty(EntityConstants.PROPERTY_MINALTITUDE, ee.getMinAltitude());
+    }
+    
+    private void updateSimEntityMaxAltitude(final EntityElement ee)
+    {
+        final Entity simEntity = getSimEntity(ee);
+        simEntity.setProperty(EntityConstants.PROPERTY_MAXALTITUDE, ee.getMaxAltitude());
+    }
+    
+    private void updateSimEntityRouteWidth(final EntityElement ee)
+    {
+        final Entity simEntity = getSimEntity(ee);
+        simEntity.setProperty(EntityConstants.PROPERTY_SHAPE_WIDTH_METERS, ee.getRouteWidth());
     }
 
     private void updateSimEntityPosition(final EntityElement ee)
@@ -403,7 +429,7 @@ public class MapPanel extends JPanel implements ModelChangeListener, SelectionMa
             {
                 super.setPosition(position);
                 
-                if(pvd.isDraggingEntity())
+                if(pvdView.isDraggingEntity())
                 {
                     movedEntities.add(this);
                 }
@@ -437,6 +463,12 @@ public class MapPanel extends JPanel implements ModelChangeListener, SelectionMa
         e.setProperty(EntityConstants.PROPERTY_FORCE, source.getForce());
         e.setProperty(EDITOR_ENTITY_PROP, source);
         e.setProperty(EntityConstants.PROPERTY_SHAPE_WIDTH_PIXELS, 5); // make routes stand out more in editor
+        e.setProperty(EntityConstants.PROPERTY_MINALTITUDE, source.getMinAltitude());
+        e.setProperty(EntityConstants.PROPERTY_MAXALTITUDE, source.getMaxAltitude());
+        e.setProperty(EntityConstants.PROPERTY_SHAPE_WIDTH_METERS, source.getRouteWidth());
+        e.setProperty(EntityConstants.PROPERTY_SHAPE_ENTITY_LENGTH_METERS, source.getEntityLength());
+        e.setProperty(EntityConstants.PROPERTY_SHAPE_ENTITY_WIDTH_METERS, source.getEntityWidth());
+        e.setProperty(EntityConstants.PROPERTY_VISIBLE, true); //Always visible in editor
         e.addPropertyListener(new PolygonPointChangeListener());
         sim.addEntity(e);
     }
@@ -505,8 +537,6 @@ public class MapPanel extends JPanel implements ModelChangeListener, SelectionMa
             active = true;
             app.findService(UndoService.class).addEdit(ee.getPoints().setPoints(polygon.getPointNames()));
             active = false;
-        }
-
-        
+        }  
     }
 }

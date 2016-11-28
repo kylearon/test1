@@ -42,8 +42,7 @@ import javax.swing.KeyStroke;
 import com.soartech.simjr.sim.Entity;
 import com.soartech.simjr.sim.EntityTools;
 import com.soartech.simjr.sim.Simulation;
-import com.soartech.simjr.ui.pvd.PlanViewDisplay;
-import com.soartech.simjr.ui.pvd.PlanViewDisplayProvider;
+import com.soartech.simjr.ui.pvd.PvdView;
 
 /**
  * @author ray
@@ -86,12 +85,6 @@ public class AddDistanceToolAction extends AbstractSimulationAction
             return;
         }
         
-        final PlanViewDisplayProvider pvdPro = findService(PlanViewDisplayProvider.class);
-        if(pvdPro == null)
-        {
-            return;
-        }
-        
         Entity start = (Entity) o;
         
         List<Entity> entities = sim.getEntities();
@@ -114,21 +107,21 @@ public class AddDistanceToolAction extends AbstractSimulationAction
         
         Collections.sort(entities, EntityTools.NAME_COMPARATOR);
         
-        final PlanViewDisplay pvd = pvdPro.getActivePlanViewDisplay();
-        if(pvd == null)
+        final PvdView pvdView = getPvdView();
+        if(pvdView == null)
         {
             return;
         }
         
         Object[] values = entities.toArray();
-        Entity end = (Entity) JOptionPane.showInputDialog(pvd, 
+        Entity end = (Entity) JOptionPane.showInputDialog(pvdView.getComponent(), 
                         "Choose target entity", "Distance Tool",
                         JOptionPane.INFORMATION_MESSAGE, null,
                         values, values[0]);
         
         if(end != null)
         {
-            pvd.getDistanceTools().addDistanceTool(start, end);
+            pvdView.getDistanceTools().addDistanceTool(start, end);
         }
     }
 

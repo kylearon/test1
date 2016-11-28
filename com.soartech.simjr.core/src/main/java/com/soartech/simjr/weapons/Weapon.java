@@ -60,7 +60,7 @@ public abstract class Weapon
             }
             catch (IOException e)
             {
-                logger.error("IOException", e);
+                logger.error(e.toString());
             }
             finally
             {
@@ -128,7 +128,6 @@ public abstract class Weapon
     
     /**
      * @param name
-     * @param type
      * @param count
      * @param maxCount
      */

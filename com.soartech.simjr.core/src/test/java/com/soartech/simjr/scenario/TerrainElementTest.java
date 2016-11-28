@@ -35,14 +35,16 @@ import javax.swing.undo.UndoableEdit;
 
 import junit.framework.TestCase;
 
+import com.soartech.simjr.scenario.model.Model;
+
 public class TerrainElementTest extends TestCase
 {
     public void testSetOrigin()
     {
         final Model model = new Model();
         final TerrainElement terrain = model.getTerrain();
-        assertEquals(0.0, terrain.getOriginLatitude(), 0.001);
-        assertEquals(0.0, terrain.getOriginLongitude(), 0.001);
+        assertEquals(TerrainElement.DEFAULT_LATITUDE, terrain.getOriginLatitude(), 0.001);
+        assertEquals(TerrainElement.DEFAULT_LONGITUDE, terrain.getOriginLongitude(), 0.001);
         
         UndoableEdit edit = terrain.setOrigin(1.2, 3.4);
         assertNotNull(edit);
@@ -50,8 +52,8 @@ public class TerrainElementTest extends TestCase
         assertEquals(3.4, terrain.getOriginLongitude(), 0.001);
         
         edit.undo();
-        assertEquals(0.0, terrain.getOriginLatitude(), 0.001);
-        assertEquals(0.0, terrain.getOriginLongitude(), 0.001);
+        assertEquals(TerrainElement.DEFAULT_LATITUDE, terrain.getOriginLatitude(), 0.001);
+        assertEquals(TerrainElement.DEFAULT_LONGITUDE, terrain.getOriginLongitude(), 0.001);
         
         edit.redo();
         assertEquals(1.2, terrain.getOriginLatitude(), 0.001);

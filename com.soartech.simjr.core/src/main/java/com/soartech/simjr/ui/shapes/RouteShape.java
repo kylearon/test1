@@ -43,14 +43,17 @@ import com.soartech.shapesystem.CoordinateTransformer;
 import com.soartech.shapesystem.FillStyle;
 import com.soartech.shapesystem.JoinStyle;
 import com.soartech.shapesystem.Position;
+import com.soartech.shapesystem.PositionType;
 import com.soartech.shapesystem.PrimitiveRenderer;
 import com.soartech.shapesystem.PrimitiveRendererFactory;
 import com.soartech.shapesystem.Rotation;
 import com.soartech.shapesystem.Scalar;
+import com.soartech.shapesystem.ScalarUnit;
 import com.soartech.shapesystem.Shape;
 import com.soartech.shapesystem.ShapeStyle;
 import com.soartech.shapesystem.ShapeSystem;
 import com.soartech.shapesystem.SimplePosition;
+import com.soartech.shapesystem.shapes.Text;
 import com.soartech.simjr.adaptables.Adaptables;
 import com.soartech.simjr.sim.Entity;
 import com.soartech.simjr.sim.EntityConstants;
@@ -85,7 +88,7 @@ public class RouteShape extends EntityShape implements EntityConstants
             style.setCapStyle(CapStyle.ROUND);
             style.setJoinStyle(JoinStyle.ROUND);
             setLineWidth(selected.getProperties(), style, true);
-            return new SystemShape(polygon, id, LAYER_SELECTION, style);   
+            return new SystemShape(null, polygon, id, LAYER_SELECTION, style);   
         }
 
         public String toString() { return NAME; }
@@ -113,7 +116,8 @@ public class RouteShape extends EntityShape implements EntityConstants
                                           LAYER_ROUTE).toString();
         
         ShapeStyle style = new ShapeStyle();
-        Color lineColor = (Color) EntityTools.getProperty(props, PROPERTY_SHAPE_LINE_COLOR, Color.YELLOW);
+        
+        Color lineColor = (Color) EntityTools.getLineColor(route.getEntity(), Color.YELLOW);
         style.setLineColor(lineColor);
         
         Number opacity = (Number) EntityTools.getProperty(props, PROPERTY_SHAPE_OPACITY, 1.0);
@@ -124,13 +128,14 @@ public class RouteShape extends EntityShape implements EntityConstants
         
         setLineWidth(props, style, false);
         
-        addHitableShape(new SystemShape(route, route.getName() + ".route", layer, style));
+        addHitableShape(new SystemShape(this, route, route.getName() + ".route", layer, style));
     }
 
-    private static void setLineWidth(Map<String, Object> props, ShapeStyle style, boolean selection)
+    public static void setLineWidth(Map<String, Object> props, ShapeStyle style, boolean selection)
     {
         // First check for width in meters
         Number lineWidth = (Number) EntityTools.getProperty(props, PROPERTY_SHAPE_WIDTH_METERS, null);
+        
         if(lineWidth != null)
         {
             style.setLineThickness(Scalar.createMeter(lineWidth.doubleValue() * (selection ? 1.5 : 1.0)));
@@ -145,21 +150,26 @@ public class RouteShape extends EntityShape implements EntityConstants
             }
             else
             {
-                // No setting. Assume one pixel wide
-                style.setLineThickness(Scalar.createPixel(selection ? 10.0 : 2.0));
+                // No setting
+                style.setLineThickness(Scalar.createPixel(selection ? 20.0 : 2.0));
             }
         }
     }
 
     private static class SystemShape extends Shape
     {
+        private Text label = null;
         private AbstractPolygon route;
         private List<SimplePosition> cachedPoints = new ArrayList<SimplePosition>();
         
-        public SystemShape(AbstractPolygon route, String id, String layer, ShapeStyle style)
+        public SystemShape(RouteShape routeShape, AbstractPolygon route, String id, String layer, ShapeStyle style)
         {
             super(id, layer, new Position(), Rotation.IDENTITY, style);
             this.route = route;
+            if (null != routeShape)
+            {
+                this.label = routeShape.createLabel(0, 0, "");
+            }
         }
 
         @Override
@@ -186,78 +196,97 @@ public class RouteShape extends EntityShape implements EntityConstants
         {
             if(cachedPoints.size() < 2)
             {
-                final PrimitiveRenderer labelRenderer = rendererFactory.createPrimitiveRenderer(labelStyle);
-                double y = labelRenderer.getViewportHeight() / 2;
-                double x = labelRenderer.getViewportWidth() / 2;
-                if(getLayer().equals(LAYER_SELECTION))
-                {
-                    labelRenderer.drawText(new SimplePosition(x, y), "Empty route " + route.getName());
-                }
-                else
-                {
-                    labelRenderer.drawText(new SimplePosition(x, y), "Empty route " + route.getName());
-                }
+                label.setStyle(labelStyle);
+                label.setText("Empty route " + route.getName());
                 return;
             }
             
             final ShapeStyle frontStyle = getStyle();
             final ShapeStyle backStyle = frontStyle.copy();
-            backStyle.setLineThickness(backStyle.getLineThickness().scale(1.75));
-            backStyle.setLineColor(backStyle.getLineColor().darker());
             
-            boolean first = true;
-            SimplePosition onScreen[] = new SimplePosition[2];
-            int onScreenIndex = 0;
+            //Calculate the size of the route outline rather than applying a default scale.
+            // Using the scale transform causes the line to appear much thicker than it really is
+            double size = backStyle.getLineThickness().getValue();
+            ScalarUnit unit = backStyle.getLineThickness().getUnit();
+            Scalar backGroundThickness;
+            if(unit.equals(ScalarUnit.Meters))
+            {
+                backGroundThickness = Scalar.createMeter(size +5);
+            }
+            else
+            {
+                backGroundThickness = Scalar.createPixel(size +5);
+            }
+            backStyle.setLineThickness(backGroundThickness);
+            backStyle.setLineColor(backStyle.getLineColor().darker());
             
             // Draw the route twice. Once with a thicker, darker line. Once with a thinner line.
             for(ShapeStyle style : new ShapeStyle[] {backStyle, frontStyle} )
             {
                 final PrimitiveRenderer renderer = rendererFactory.createPrimitiveRenderer(style);
-
+                // First check for width in meters
+                Map<String, Object> props = route.getEntity().getProperties();
+                Number lineWidth = (Number) EntityTools.getProperty(props, PROPERTY_SHAPE_WIDTH_METERS, null);
+                if(lineWidth != null && lineWidth.doubleValue() > 0.5)
+                {
+                    style.setLineThickness(Scalar.createMeter(lineWidth.doubleValue() * (1.0)));
+                }
+                else
+                {
+                    style.setLineThickness(Scalar.createPixel(5));
+                }
                 renderer.drawPolyline(cachedPoints);
                 
-                for(SimplePosition point : cachedPoints)
-                {
-                    if(first)
-                    {
-                        if(onScreenIndex == 0 && renderer.isPointInViewport(point))
-                        {
-                            onScreen[onScreenIndex++] = point;
-                        }
-                        else if(onScreenIndex == 1)
-                        {
-                            onScreen[onScreenIndex++] = point;
-                        }
-                    }
-                }
-                
-                first = false;
-            }
-            
-            final PrimitiveRenderer labelRenderer = rendererFactory.createPrimitiveRenderer(labelStyle);
-            if(onScreenIndex == 2)
-            {
-                SimplePosition center = SimplePosition.midPoint(onScreen[0], onScreen[1]);
-                //center.x += getStyle().lineThickness.getValue() + 5;
-                //center.y += getStyle().lineThickness.getValue() + 5;
-                drawLabel(labelRenderer, center);
-            }
-            else if(onScreenIndex == 1)
-            {
-                SimplePosition center = new SimplePosition(onScreen[0].x - 20, onScreen[0].y - 20);
-                drawLabel(labelRenderer, center);
+                drawLabel(renderer);
             }
         }
-
-        private void drawLabel(final PrimitiveRenderer labelRenderer,
-                SimplePosition center)
+        
+        private void drawLabel(PrimitiveRenderer renderer)
         {
-            boolean labelVisible = 
-                (Boolean) EntityTools.getProperty(route.getEntity().getProperties(), 
-                    EntityConstants.PROPERTY_SHAPE_LABEL_VISIBLE, true);
-            if(labelVisible)
+            if (label == null)
             {
-                labelRenderer.drawText(center, route.getName());
+                return;
+            }
+            
+            List<SimplePosition> consequtiveVisiblePoints = new ArrayList<SimplePosition>();
+            SimplePosition visiblePoint = null;
+            for(SimplePosition point : cachedPoints)
+            {
+                if (renderer.isPointInViewport(point))
+                {
+                    visiblePoint = point;
+                    consequtiveVisiblePoints.add(point);
+                    if (consequtiveVisiblePoints.size() == 2)
+                    {
+                        break;
+                    }
+                }
+                else
+                {
+                    consequtiveVisiblePoints.clear();
+                }
+            }
+        
+            boolean labelVisible = (consequtiveVisiblePoints.size() == 2 || visiblePoint != null) &&
+                    (Boolean) EntityTools.getProperty(route.getEntity().getProperties(), 
+                            EntityConstants.PROPERTY_SHAPE_LABEL_VISIBLE, true);
+
+            SimplePosition labelPos = new SimplePosition();
+            label.setVisible(labelVisible);
+            if (labelVisible)
+            {
+                if (consequtiveVisiblePoints.size() == 2)
+                {
+                    labelPos = SimplePosition.midPoint(consequtiveVisiblePoints.get(0), consequtiveVisiblePoints.get(1));
+                }
+                else
+                {
+                    labelPos = new SimplePosition(visiblePoint.x - 20, visiblePoint.y - 20);
+                }
+                
+                label.setPosition(new Position(PositionType.WORLD, new Scalar(labelPos.x), new Scalar(labelPos.y)));
+                label.setText(route.getName());
+                label.setStyle(labelStyle);
             }
         }
 
@@ -303,6 +332,42 @@ public class RouteShape extends EntityShape implements EntityConstants
             }
             
             return false;
+        }
+
+        @Override
+        public double distance(double x, double y)
+        {
+            if(!isVisible())
+            {
+                return Double.MAX_VALUE;
+            }
+            
+            if(cachedPoints.size() < 2)
+            {
+                return Double.MAX_VALUE;
+            }
+            
+            SimplePosition last = null;
+            double min = Double.MAX_VALUE;
+            for(SimplePosition p : cachedPoints)
+            {
+                if(last != null)
+                {
+                    Vector3 start = new Vector3(last.x, last.y, 0.0);
+                    Vector3 end = new Vector3(p.x, p.y, 0.0);
+                    Vector3 dir = end.subtract(start);
+                    
+                    double d = LineSegmentDistance.toPoint(start, end, dir, new Vector3(x, y, 0.0));
+                    if(d < min)
+                    {
+                        min = d;
+                    }
+                }
+                
+                last = p;
+            }
+            
+            return min;
         }
         
     }

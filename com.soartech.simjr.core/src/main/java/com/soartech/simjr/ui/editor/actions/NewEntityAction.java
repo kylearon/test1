@@ -45,6 +45,7 @@ import com.soartech.simjr.adaptables.Adaptables;
 import com.soartech.simjr.scenario.EntityElement;
 import com.soartech.simjr.scenario.EntityElementList;
 import com.soartech.simjr.scenario.edits.NewEntityEdit;
+import com.soartech.simjr.sim.EntityPrototypeDatabase;
 import com.soartech.simjr.ui.actions.ActionManager;
 import com.soartech.simjr.ui.editor.UndoService;
 import com.soartech.simjr.util.MultiSelectDialog;
@@ -54,11 +55,11 @@ import com.soartech.simjr.util.MultiSelectDialog;
  */
 public class NewEntityAction extends AbstractEditorAction
 {
-    //private static final Logger logger = Logger.getLogger(NewEntityAction.class);
     private static final long serialVersionUID = 1L;
     
-    private Geodetic.Point initialPosition;
-    private final String prototype;
+    protected Geodetic.Point initialPosition;
+    protected final String prototype;
+    private NewEntityEdit newEntity = null;
     
     public static String getId(String prototype)
     {
@@ -66,9 +67,11 @@ public class NewEntityAction extends AbstractEditorAction
     }
     
     /**
+     * 
      * @param manager
      * @param label
-     * @param icon
+     * @param prototype
+     * @param keyStroke
      */
     public NewEntityAction(ActionManager manager, String label, String prototype, String keyStroke)
     {
@@ -106,7 +109,6 @@ public class NewEntityAction extends AbstractEditorAction
         return super.getId() + "." + prototype;
     }
 
-
     /* (non-Javadoc)
      * @see com.soartech.simjr.ui.actions.AbstractSimulationAction#update()
      */
@@ -131,6 +133,7 @@ public class NewEntityAction extends AbstractEditorAction
     /* (non-Javadoc)
      * @see java.awt.event.ActionListener#actionPerformed(java.awt.event.ActionEvent)
      */
+    @Override
     public void actionPerformed(ActionEvent e)
     {
         final double originLat;
@@ -179,12 +182,30 @@ public class NewEntityAction extends AbstractEditorAction
             
             // Create the route object and add the two points to it
             final NewEntityEdit edit = entities.addEntity(points.get(0) + "-" + points.get(points.size() - 1), prototype);
+            newEntity = edit;
             compound.addEdit(edit);
             edit.getEntity().getPoints().setPoints(points);
         }
         else
         {
-            final NewEntityEdit edit = entities.addEntity(prototype, prototype);
+            // Get the next available default name from the prototype's list of default names
+            String entityDefaultName = prototype;
+            Object defaultNames = EntityPrototypeDatabase.findService(getServices()).getPrototype(prototype).getProperty("name.defaults");
+            if (null != defaultNames && defaultNames instanceof List<?> && ((List<?>)defaultNames).size() > 0)
+            {
+                List<String> defaultNamesList = (List<String>)defaultNames;
+                for (String defaultNameIter : defaultNamesList)
+                {
+                    if (null == entities.getEntity(defaultNameIter))
+                    {
+                        entityDefaultName = defaultNameIter;
+                        break;
+                    }
+                }
+            }
+            
+            final NewEntityEdit edit = entities.addEntity(entityDefaultName, prototype);
+            newEntity = edit;
             compound.addEdit(edit);
             
             final UndoableEdit locEdit = edit.getEntity().getLocation().setLocation(originLat, originLon, 0.0);
@@ -197,5 +218,9 @@ public class NewEntityAction extends AbstractEditorAction
         compound.end();
         findService(UndoService.class).addEdit(compound);
     }
-
+    
+    public EntityElement getNewEntity()
+    {
+        return newEntity != null ? newEntity.getEntity() : null;
+    }
 }

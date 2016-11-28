@@ -77,11 +77,11 @@ public final class WebBrowserTools
         }
         catch (IOException e)
         {
-            logger.error("IOException", e);
+            logger.error(e.toString());
         }
         catch (InterruptedException e)
         {
-            logger.error("InterruptedException", e);
+            logger.error(e.toString());
         }
 
     }

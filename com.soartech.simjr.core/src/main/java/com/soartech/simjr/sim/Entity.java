@@ -31,6 +31,7 @@
  */
 package com.soartech.simjr.sim;
 
+import java.util.List;
 import java.util.Map;
 
 import com.soartech.math.Vector3;
@@ -100,6 +101,8 @@ public interface Entity extends Adaptable
      */
     void setVelocity(Vector3 velocity);
     
+    Vector3 getAcceleration();
+    
     // Keeping these around for backwards compatibility with old scripts
     @Deprecated
     /**
@@ -113,7 +116,7 @@ public interface Entity extends Adaptable
     /**
      * Set the yaw (rotation around Z of the entity in radians).
      * 
-     * @deprecated Replaced by {@link #setHeading()}
+     * @deprecated Replaced by {@link #setHeading(double)}
      * @param radians Angle in radians (MATH radians)
      */
     @Deprecated
@@ -243,7 +246,7 @@ public interface Entity extends Adaptable
      * method will be called each time the entity is ticked.
      * 
      * @param capability the capability to add
-     * @throw IllegalStateException if capability is already attached to an entity
+     * @throws IllegalStateException if capability is already attached to an entity
      */
     void addCapability(EntityCapability capability);
     
@@ -254,4 +257,24 @@ public interface Entity extends Adaptable
      * @param capability the capability to remove
      */
     void removeCapability(EntityCapability capability);
+    
+    /**
+     * Returns an unmodifiable list of the entities capabilities. Useful for some introspection type
+     * tasks that the Adaptable approach doesn't support (e.g. find all capabilities of type X).
+     */
+    List<EntityCapability> getCapabilities();
+    
+    /**
+     * Sets the parent of an entity
+     * 
+     * @param parent of the entity
+     */
+    void setParent(Entity parent);
+
+    /**
+     * Gets the parent of an entity
+     * 
+     * @return the parent
+     */
+    Entity getParent();
 }

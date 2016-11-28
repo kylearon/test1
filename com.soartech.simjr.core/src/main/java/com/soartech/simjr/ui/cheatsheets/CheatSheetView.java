@@ -155,7 +155,7 @@ public class CheatSheetView extends DefaultSingleCDockable implements HyperlinkL
         }
         catch (IOException e)
         {
-            logger.error("IOException", e);
+            logger.error(e.toString());
             setError(e.getMessage());
         }
     }
@@ -176,7 +176,7 @@ public class CheatSheetView extends DefaultSingleCDockable implements HyperlinkL
                 }
                 catch (URISyntaxException e1)
                 {
-                    logger.error("URISyntaxException", e1);
+                    logger.error(e1.toString());
                     setError(e1.getMessage());
                 }
             }

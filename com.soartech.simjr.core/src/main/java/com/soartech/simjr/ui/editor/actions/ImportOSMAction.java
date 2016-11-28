@@ -27,7 +27,19 @@ public class ImportOSMAction extends AbstractEditorAction
 
     private static final long serialVersionUID = 1L;
     private static final Logger logger = LoggerFactory.getLogger(ImportOSMAction.class);
+    
+    @SuppressWarnings("serial")
+	private static Map<String, OSMHighway> osmHighways = new HashMap<String, OSMHighway>(){{
+    	put("residential", new OSMHighway("residential", 2, 8, 4));
+    	put("motorway", new OSMHighway("service", 8, 40, 5));
+    	put("highway", new OSMHighway("service", 6, 30, 5));
+    	put("primary", new OSMHighway("service", 4, 20, 5));
+    	put("secondary", new OSMHighway("service", 2, 10, 5));
+    	put("service", new OSMHighway("service", 1, 5, 5));
+    }};
 
+    private Map<String,Node> idToNodeMap = new HashMap<String,Node>();
+    
     // TODO: I need some additional temporary storage for the node information
     // because I have to figure out an approximate centroid for the area before
     // I add the waypoints and routes to the map. It seems like the map should
@@ -35,6 +47,7 @@ public class ImportOSMAction extends AbstractEditorAction
     // but it doesn't seem to.
     private static class Node {
         String id;
+        String name;
         double latitude;
         double longitude;
     }
@@ -47,7 +60,7 @@ public class ImportOSMAction extends AbstractEditorAction
      */
     public ImportOSMAction(ActionManager actionManager) 
     {
-        super( actionManager, "Import Open StreetMap Data...");
+        super( actionManager, "Import Open Street Map Data...");
     }
 
     /* (non-Javadoc)
@@ -88,21 +101,57 @@ public class ImportOSMAction extends AbstractEditorAction
     
     private void importOSMDataFromDoc(Document doc) 
     {
-        List<Node> nodes = readInNodeData(doc);
+        readInNodeData(doc);
         
         // The terrain origin must be set before entities are added to the terrain (seems like a bug
         // since the model document has the right data in it anyway)
-        Geodetic.Point gdorigin = calculateNodeCenter(nodes);
-        getModel().getTerrain().setOrigin(Math.toDegrees(gdorigin.latitude), Math.toDegrees(gdorigin.longitude));
+        if ( !getModel().getTerrain().getImage().hasImage() )
+        {
+            Geodetic.Point gdorigin = calculateNodeCenter();
+            getModel().getTerrain().setOrigin(Math.toDegrees(gdorigin.latitude), Math.toDegrees(gdorigin.longitude));
+        }
         
         // Creating the various entities (you need the id to name map because of possible
         // name collisions). A waypoint's id might not match the name assigned to it on creation.
-        Map<String, String> idToWaypointNameMap = createWaypointEntities(nodes);        
-        createRouteEntities(doc, idToWaypointNameMap);        
+        createRouteEntities(doc);        
     }
 
-    private void createRouteEntities(Document doc,
-                                     Map<String, String> idToWaypointNameMap) {
+    private double getWayWidth(Map<String, String> tags){
+
+    	// Return width if available.
+    	if(tags.containsKey("width"))
+    	{
+    		return Double.parseDouble(tags.get("width"));
+    	} 
+    	else if(tags.containsKey("highway"))
+    	{
+    		String highwayType = tags.get("highway");
+    		// Try to calculate width from lanes.
+    		if(tags.containsKey("lanes"))
+    		{
+	    		int lanes = Integer.parseInt(tags.get("lanes"));
+	    		if(osmHighways.containsKey(highwayType)){
+	    			return lanes * osmHighways.get(highwayType).getLaneWidth();
+	    		}
+	    		else 
+	    		{
+	    			return lanes * 4;
+	    		}
+    		} 
+    		else 
+    		{
+    			if(osmHighways.containsKey(highwayType))
+				{
+    				return osmHighways.get(highwayType).getWidth();
+				}
+    		}
+    	}
+    	
+    	
+    	return 10;
+    }
+    
+    private void createRouteEntities(Document doc) {
         // Creating the route entities
         List<?> ways = doc.getRootElement().getChildren("way");
         for ( Object obj : ways ) 
@@ -110,49 +159,69 @@ public class ImportOSMAction extends AbstractEditorAction
             Element wayElem = (Element) obj;
             String id = wayElem.getAttributeValue("id");
             Map<String,String> tags = processTagInfo(wayElem);
-            String name = tags.get("name");
-            if ( name == null ) name = id;
-            
-            List<?> nodeRefElems = wayElem.getChildren("nd");
-            List<String> nodeNames = new ArrayList<String>();
-            for ( Object ooo : nodeRefElems ) 
+
+            // Making sure we just use highways that aren't areas (for some reason
+            // rest areas are encoded as "ways" with an area attribute
+            String highwayType = tags.get("highway");
+            String area = tags.get("area");
+            if ( highwayType != null && area == null)
             {
-                Element nref = (Element) ooo;
-                String nid = nref.getAttributeValue("ref");
-                String nodeName = idToWaypointNameMap.get(nid);
-                nodeNames.add(nodeName);
+                String name = tags.get("name");
+                if ( name == null ) name = id;
+                
+                List<?> nodeRefElems = wayElem.getChildren("nd");
+                List<String> nodeNames = new ArrayList<String>();
+                for ( Object ooo : nodeRefElems ) 
+                {
+                    Element nref = (Element) ooo;
+                    String nid = nref.getAttributeValue("ref");
+                    
+                    Node node = getOrCreateNode(nid);
+                    nodeNames.add(node.name);
+                }
+                
+                NewEntityEdit edit = getModel().getEntities().addEntity(name, "route");
+                edit.getEntity().getPoints().setPoints(nodeNames);
+                edit.getEntity().setLabelVisible(false);
+                edit.getEntity().setRouteWidth(getWayWidth(tags));
             }
-            
-            NewEntityEdit edit = getModel().getEntities().addEntity(name, "route");
-            edit.getEntity().getPoints().setPoints(nodeNames);
         }
     }
-
-    private Map<String, String> createWaypointEntities(List<Node> nodes) {
-        // Keeping this map around since there is a small chance of a collision when
-        // importing the points and we need to use references to them to create the routes
-        Map<String,String> idToWaypointNameMap = new HashMap<String,String>();        
-        for ( Node node : nodes )
+    
+    /**
+     * This returns the node with the specified id. If the name hasn't been initialized
+     * we create a waypoint entity and store its name.
+     * 
+     * @param nodeid
+     * @return Node with id of {@code nodeid}.
+     */
+    private Node getOrCreateNode(String nodeid)
+    {
+        Node node = idToNodeMap.get(nodeid);
+        
+        // If there is nothing in the name field we need to create a waypoint entity
+        if ( node.name == null )
         {
             NewEntityEdit edit = getModel().getEntities().addEntity(node.id, "waypoint");
             
             // TODO: Not sure where to get altitude of ground level for the following
             edit.getEntity().getLocation().setLocation(node.latitude, node.longitude, 0.);
             edit.getEntity().setVisible(false);
+            edit.getEntity().setLabelVisible(false);
             
-            idToWaypointNameMap.put(node.id, edit.getEntity().getName());
+            node.name = edit.getEntity().getName();            
         }
-        return idToWaypointNameMap;
+        return node;
     }
 
-    private Geodetic.Point calculateNodeCenter(List<Node> nodes) {
+    private Geodetic.Point calculateNodeCenter() {
         // These variables are used to estimate a good terrain origin based on
         // the lat/lon of the input road points
         Geocentric geocentric = new Geocentric();
         Vector3 sum = new Vector3(0.,0.,0.);
         long nnodes = 0;
         
-        for ( Node node : nodes )
+        for ( Node node : idToNodeMap.values() )
         {   
             // Accumulating position info for later origin calculation
             Vector3 gcpos = geocentric.fromGeodetic(Math.toRadians(node.latitude), 
@@ -169,23 +238,19 @@ public class ImportOSMAction extends AbstractEditorAction
         return gdorigin;
     }
 
-    private List<Node> readInNodeData(Document doc) {
-        // Storing the nodes information initially and calculating a good terrain origin
-        List<Node> nodes = new ArrayList<Node>();
-
+    private void readInNodeData(Document doc) {
         // Creating the waypoint entities
         List<?> nodeElems = doc.getRootElement().getChildren("node");
         
         for ( Object obj : nodeElems ) 
         {
             Node node = new Node();
-            nodes.add(node);
             Element nodeElem = (Element) obj;
             node.id = nodeElem.getAttributeValue("id");
             node.latitude = Double.parseDouble( nodeElem.getAttributeValue("lat") );
             node.longitude = Double.parseDouble( nodeElem.getAttributeValue("lon") );
+            idToNodeMap.put(node.id, node);
         }
-        return nodes;
     }
     
     private Map<String,String> processTagInfo(Element waypointElem) 
@@ -207,7 +272,7 @@ public class ImportOSMAction extends AbstractEditorAction
         final PlanViewDisplayProvider pvdPro = findService(PlanViewDisplayProvider.class);
         if(pvdPro != null && pvdPro.getActivePlanViewDisplay() != null)
         {
-            pvdPro.getActivePlanViewDisplay().showAll();
+            pvdPro.getActivePlanViewDisplay().getView().showAll();
         }
     }
 
@@ -220,5 +285,36 @@ public class ImportOSMAction extends AbstractEditorAction
         // Nothing to do here. Typically used to update the state of the action
         // (enable or disable based on application state) when application state
         // changes.
+    }
+    
+    private static class OSMHighway{
+    	private String id;
+    	private int lanes;
+    	private double width;
+    	private double laneWidth;
+    	
+    	public OSMHighway(String id, int lanes, double width, double laneWidth){
+    		this.id = id;
+    		this.lanes = lanes;
+    		this.width = width;
+    		this.laneWidth = laneWidth;
+    	}
+
+		public String getId() {
+			return id;
+		}
+
+		public int getLanes() {
+			return lanes;
+		}
+
+		public double getWidth() {
+			return width;
+		}
+
+		public double getLaneWidth() {
+			return laneWidth;
+		}
+    	
     }
 }

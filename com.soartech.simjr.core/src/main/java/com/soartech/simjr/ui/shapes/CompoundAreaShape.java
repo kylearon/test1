@@ -35,24 +35,14 @@ import java.awt.Color;
 import java.util.List;
 import java.util.Map;
 
-import bibliothek.gui.dock.util.swing.Rotation;
-
-import com.soartech.math.Vector3;
 import com.soartech.shapesystem.FillStyle;
-import com.soartech.shapesystem.Position;
-import com.soartech.shapesystem.PositionType;
 import com.soartech.shapesystem.Scalar;
-import com.soartech.shapesystem.Shape;
 import com.soartech.shapesystem.ShapeStyle;
 import com.soartech.shapesystem.ShapeSystem;
-import com.soartech.shapesystem.TextStyle;
-import com.soartech.shapesystem.shapes.Hull;
-import com.soartech.shapesystem.shapes.Text;
 import com.soartech.simjr.adaptables.Adaptables;
 import com.soartech.simjr.sim.Entity;
 import com.soartech.simjr.sim.EntityConstants;
 import com.soartech.simjr.sim.EntityTools;
-import com.soartech.simjr.sim.entities.AbstractPolygon;
 import com.soartech.simjr.sim.entities.DefaultCompoundPolygon;
 
 /**
@@ -81,7 +71,8 @@ public class CompoundAreaShape extends EntityShape implements EntityConstants
     private boolean updateShape = false;
     
     /**
-     * @param area
+     * 
+     * @param defaultCompoundPolygon
      * @param system
      */
     public CompoundAreaShape(DefaultCompoundPolygon defaultCompoundPolygon, ShapeSystem system)
@@ -107,6 +98,15 @@ public class CompoundAreaShape extends EntityShape implements EntityConstants
         }
         
         createLabel(0, 0, defaultCompoundPolygon.getName());
+        
+        List<Entity> children = this.compoundPolygon.getPolygons();
+        for (Entity child : children)
+        {
+            child.setParent(this.getEntity());
+            // Toggle the visibility to force an update of displaying labels if a parent
+            child.setProperty(EntityConstants.PROPERTY_VISIBLE, !(Boolean)child.getProperty(EntityConstants.PROPERTY_VISIBLE));
+            child.setProperty(EntityConstants.PROPERTY_VISIBLE, !(Boolean)child.getProperty(EntityConstants.PROPERTY_VISIBLE));
+        }
     }
 
     /* (non-Javadoc)
@@ -120,6 +120,15 @@ public class CompoundAreaShape extends EntityShape implements EntityConstants
         if(propertyName.equals(PROPERTY_POLYGONS))
         {
             updateShape = true;
+            
+            List<Entity> children = this.compoundPolygon.getPolygons();
+            for (Entity child : children)
+            {
+                child.setParent(this.getEntity());
+                // Toggle the visibility to force an update of displaying labels if a parent
+                child.setProperty(EntityConstants.PROPERTY_VISIBLE, !(Boolean)child.getProperty(EntityConstants.PROPERTY_VISIBLE));
+                child.setProperty(EntityConstants.PROPERTY_VISIBLE, !(Boolean)child.getProperty(EntityConstants.PROPERTY_VISIBLE));
+            }
         }
     }
 

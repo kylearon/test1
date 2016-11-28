@@ -43,13 +43,11 @@ import com.soartech.simjr.ui.actions.ActionManager;
  */
 public class NewAction extends AbstractEditorAction
 {
-    //private static final Logger logger = Logger.getLogger(NewAction.class);
+    //private static final Logger logger = LoggerFactory.getLogger(NewAction.class);
     private static final long serialVersionUID = 1L;
     
     /**
      * @param manager
-     * @param label
-     * @param icon
      */
     public NewAction(ActionManager manager)
     {

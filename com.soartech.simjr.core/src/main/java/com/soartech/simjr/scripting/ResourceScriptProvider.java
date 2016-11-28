@@ -36,32 +36,38 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+
 /**
- * An implementation of {@link ScriptProvider} that retrieves a script
- * as a resource using a specific class loader.
+ * An implementation of {@link ScriptProvider} that retrieves a script as a
+ * resource using a specific class loader.
  * 
  * @author ray
  */
 public abstract class ResourceScriptProvider implements ScriptProvider
 {
     private final Map<String, String> scripts = new HashMap<String, String>();
-    
-    public void add(String name, String path) {
-    	scripts.put(name, path);
+
+    public void add(String name, String path)
+    {
+        scripts.put(name, path);
     }
-    
-	@Override
-	public Set<String> getScriptNames() {
-		return scripts.keySet();
-	}
 
-	@Override
-	public InputStream getContents(String name) {
-		return this.getClass().getClassLoader().getResourceAsStream(scripts.get(name));
-	}
+    @Override
+    public Set<String> getScriptNames()
+    {
+        return scripts.keySet();
+    }
 
-	@Override
-	public String getPath(String name) {
-		return scripts.get(name);
-	}
+    @Override
+    public InputStream getContents(String name)
+    {
+        return this.getClass().getClassLoader()
+                .getResourceAsStream(scripts.get(name));
+    }
+
+    @Override
+    public String getPath(String name)
+    {
+        return scripts.get(name);
+    }
 }

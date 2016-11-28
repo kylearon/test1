@@ -42,9 +42,9 @@ import net.miginfocom.swing.MigLayout;
 
 import com.soartech.simjr.scenario.EntityElement;
 import com.soartech.simjr.scenario.EntityElementList;
-import com.soartech.simjr.scenario.Model;
-import com.soartech.simjr.scenario.ModelChangeEvent;
-import com.soartech.simjr.scenario.ModelChangeListener;
+import com.soartech.simjr.scenario.model.Model;
+import com.soartech.simjr.scenario.model.ModelChangeEvent;
+import com.soartech.simjr.scenario.model.ModelChangeListener;
 import com.soartech.simjr.scenario.TerrainElement;
 import com.soartech.simjr.scenario.TerrainImageElement;
 import com.soartech.simjr.sim.Entity;
@@ -57,7 +57,8 @@ public class TerrainPanel extends JPanel implements ModelChangeListener
 {
     private static final long serialVersionUID = -973913392305900522L;
     
-    private final ScenarioEditorServiceManager app;    private final Simulation sim;
+    private final ScenarioEditorServiceManager app;
+    private final Simulation sim;
     
     private final JTextField latField = new JTextField(15);
     private final JTextField lonField = new JTextField(15);

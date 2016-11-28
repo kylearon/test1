@@ -37,7 +37,6 @@ import javax.swing.KeyStroke;
 
 import com.soartech.simjr.ui.SimulationImages;
 import com.soartech.simjr.ui.actions.ActionManager;
-import com.soartech.simjr.ui.editor.RunPanel;
 import com.soartech.simjr.ui.editor.ScenarioRunner;
 
 /**
@@ -45,7 +44,7 @@ import com.soartech.simjr.ui.editor.ScenarioRunner;
  */
 public class RunAction extends AbstractEditorAction
 {
-    //private static final Logger logger = Logger.getLogger(RunAction.class);
+    //private static final Logger logger = LoggerFactory.getLogger(RunAction.class);
     private static final long serialVersionUID = 1L;
     
     /**
@@ -86,7 +85,6 @@ public class RunAction extends AbstractEditorAction
         
         runner.runScenario(getModel());
         
-        getApplication().showPanel(findService(RunPanel.class));
         getActionManager().updateActions();
     }
 

@@ -43,6 +43,7 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import org.yaml.snakeyaml.Loader;
 import org.yaml.snakeyaml.TypeDescription;
 import org.yaml.snakeyaml.Yaml;
@@ -57,6 +58,7 @@ import com.soartech.simjr.ProgressMonitor;
 import com.soartech.simjr.SimJrProps;
 import com.soartech.simjr.SimulationException;
 import com.soartech.simjr.adaptables.AbstractAdaptable;
+import com.soartech.simjr.services.ConstructOnDemand;
 import com.soartech.simjr.services.ServiceManager;
 import com.soartech.simjr.services.SimulationService;
 
@@ -69,6 +71,7 @@ import com.soartech.simjr.services.SimulationService;
  * @see EntityPrototypes
  * @author ray
  */
+@ConstructOnDemand
 public class EntityPrototypeDatabase extends AbstractAdaptable implements SimulationService
 {
     private static final Logger logger = LoggerFactory.getLogger(EntityPrototypeDatabase.class);
@@ -79,7 +82,6 @@ public class EntityPrototypeDatabase extends AbstractAdaptable implements Simula
      * Helper function to support scripting.
      * 
      * @param services
-     * @return
      */
     public static EntityPrototypeDatabase findService(ServiceManager services)
     {
@@ -88,12 +90,15 @@ public class EntityPrototypeDatabase extends AbstractAdaptable implements Simula
     
     public void load() throws IOException
     {
-        final String resource = SimJrProps.get("simjr.simulation.entity.prototypes", "simjr.entityprototypes.yaml");
+        final String resource = SimJrProps.get(
+                "simjr.simulation.entity.prototypes",
+                "simjr.entityprototypes.yaml");
         loadResource(resource, EntityPrototypeDatabase.class.getClassLoader());
-        
+
         Class<? extends EntityPrototypeDatabase> klass = getClass();
         ClassLoader classLoader = klass.getClassLoader();
-        InputStream inputStream = classLoader.getResourceAsStream("simjr.ui.entityprototypes.yaml");
+        InputStream inputStream = classLoader
+                .getResourceAsStream("simjr.ui.entityprototypes.yaml");
         InputStreamReader reader = new InputStreamReader(inputStream);
         loadFragments(reader, classLoader);
     }

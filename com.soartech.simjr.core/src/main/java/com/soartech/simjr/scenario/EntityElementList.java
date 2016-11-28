@@ -32,6 +32,7 @@
 package com.soartech.simjr.scenario;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.jdom.Element;
@@ -40,6 +41,8 @@ import org.jdom.xpath.XPath;
 
 import com.soartech.simjr.scenario.edits.DeleteEntityEdit;
 import com.soartech.simjr.scenario.edits.NewEntityEdit;
+import com.soartech.simjr.scenario.model.Model;
+import com.soartech.simjr.scenario.model.ModelChangeEvent;
 
 /**
  * @author ray
@@ -87,15 +90,13 @@ public class EntityElementList
     
     public List<EntityElement> getEntities()
     {
-        return entities;
+        return Collections.unmodifiableList(entities);
     }
     
     public EntityElement getEntity(String name)
     {
-        for(EntityElement e : entities)
-        {
-            if(name.equals(e.getName()))
-            {
+        for(EntityElement e : entities) {
+            if(e.getName().equals(name)) {
                 return e;
             }
         }

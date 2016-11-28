@@ -94,9 +94,10 @@ public class EntityVisibleRangeShape
         }
         
         double angle = range.getVisibleAngle();
+        double relhdg = range.getVisibleRelativeHeading();
         Scalar radius = Scalar.createMeter(range.getVisibleRange());
-        Rotation startAngle = Rotation.fromRadians(-angle / 2.0, RotationType.WORLD);
-        Rotation endAngle = Rotation.fromRadians(angle / 2.0, RotationType.WORLD);
+        Rotation startAngle = Rotation.fromRadians(relhdg - angle/2.0, RotationType.WORLD);
+        Rotation endAngle = Rotation.fromRadians(relhdg + angle/2.0, RotationType.WORLD);
 
         if(shape == null)
         {
@@ -104,10 +105,10 @@ public class EntityVisibleRangeShape
             style.setFillColor(color);
             style.setLineColor(color);
             style.setFillStyle(FillStyle.FILLED);
-            style.setOpacity(0.3f);
+            style.setOpacity(0.5f);
             
             shape = new Arc(parent.getRootFrame().getName() + "." + property, 
-                                        EntityConstants.LAYER_AREA,
+                                        EntityConstants.LAYER_GROUND,
                                         new Position(parent.getBodyFrame().getName()),
                                         Rotation.createRelative(parent.getBodyFrame().getName()),
                                         style,

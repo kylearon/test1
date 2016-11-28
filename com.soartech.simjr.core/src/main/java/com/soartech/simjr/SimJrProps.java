@@ -299,6 +299,7 @@ public class SimJrProps
             try
             {
                 scope.load(is);
+                scope.putAll(System.getProperties()); //Command line properties must still take precedence
             }
             finally
             {
@@ -313,6 +314,8 @@ public class SimJrProps
     
     /**
      * Load properties (defaults) from a url.
+     * 
+     * @param url The URL from which to load properties.
      */
     public static void loadPluginProperties(URL url)
     {
@@ -322,6 +325,8 @@ public class SimJrProps
     
     /**
      * Load user properties from a url.
+     *
+     * @param url The URL from which to load properties.
      */
     public static void loadPluginUserProperties(URL url)
     {
@@ -338,6 +343,7 @@ public class SimJrProps
             {
                 is = url.openStream();
                 scope.load(is);
+                scope.putAll(System.getProperties()); //Command line properties must still take precedence
             }
             finally
             {

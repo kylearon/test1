@@ -41,6 +41,10 @@ import javax.swing.undo.UndoableEdit;
 import org.jdom.Element;
 import org.jdom.xpath.XPath;
 
+import com.soartech.simjr.scenario.model.Model;
+import com.soartech.simjr.scenario.model.ModelChangeEvent;
+import com.soartech.simjr.scenario.model.ModelElement;
+
 /**
  * @author ray
  */
@@ -54,14 +58,17 @@ public class TerrainElement implements ModelElement
     private final XPath lonPath;
     private final TerrainImageElement image;
     private final TerrainTypeElement terrainType;
+    public static final double DEFAULT_LATITUDE = 42.281881;
+    public static final double DEFAULT_LONGITUDE = -83.735046;
+    
     
     public static Element buildDefault(Model model)
     {
         final Element root = model.newElement("terrain");
         
         final Element origin = model.newElement("origin");
-        origin.setAttribute("latitude", "0.0", Model.NAMESPACE);
-        origin.setAttribute("longitude", "0.0", Model.NAMESPACE);
+        origin.setAttribute("latitude", Double.toString(DEFAULT_LATITUDE), Model.NAMESPACE);
+        origin.setAttribute("longitude", Double.toString(DEFAULT_LONGITUDE), Model.NAMESPACE);
         origin.setAttribute("altitude", "0.0", Model.NAMESPACE);
         root.addContent(origin);
         

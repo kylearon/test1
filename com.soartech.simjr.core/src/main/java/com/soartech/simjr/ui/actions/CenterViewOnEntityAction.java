@@ -46,7 +46,7 @@ public class CenterViewOnEntityAction extends AbstractSimulationAction
     private static final long serialVersionUID = 7732364401438365332L;
     
     /**
-     * @param label
+     * @param actionManager
      */
     public CenterViewOnEntityAction(ActionManager actionManager)
     {
@@ -86,7 +86,7 @@ public class CenterViewOnEntityAction extends AbstractSimulationAction
         SimulationMainFrame mf = findService(SimulationMainFrame.class);
         if(mf != null)
         {
-            mf.getActivePlanViewDisplay().showPosition(e.getPosition());
+            mf.getActivePlanViewDisplay().getView().showPosition(e.getPosition());
         }
     }
 

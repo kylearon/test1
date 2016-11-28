@@ -33,37 +33,27 @@ package com.soartech.simjr.ui;
 
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.io.File;
 import java.net.MalformedURLException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.soartech.math.geotrans.Geodetic;
-import com.soartech.math.geotrans.Mgrs;
-import com.soartech.simjr.NullProgressMonitor;
 import com.soartech.simjr.ProgressMonitor;
 import com.soartech.simjr.SimJrProps;
 import com.soartech.simjr.SimulationException;
-import com.soartech.simjr.activator.SimJrActivatorManager;
-import com.soartech.simjr.app.ApplicationState;
-import com.soartech.simjr.app.DefaultApplicationStateService;
+import com.soartech.simjr.app.AbstractSimulationApplication;
 import com.soartech.simjr.scripting.ScriptRunner;
-import com.soartech.simjr.services.DefaultServiceManager;
-import com.soartech.simjr.sim.ScenarioLoader;
-import com.soartech.simjr.sim.SimpleTerrain;
 import com.soartech.simjr.sim.Simulation;
 import com.soartech.simjr.sim.SimulationListenerAdapter;
 import com.soartech.simjr.ui.actions.ActionManager;
-import com.soartech.simjr.util.FileTools;
 
 /**
  * @author ray
  */
-public class SimulationApplication extends DefaultServiceManager
+public class SimulationApplication extends AbstractSimulationApplication
 {
     private static final Logger logger = LoggerFactory.getLogger(SimulationApplication.class);
-            
+
     public final WindowAdapter exitHandler = new WindowAdapter()
     {
         public void windowClosed(WindowEvent arg0)
@@ -74,106 +64,49 @@ public class SimulationApplication extends DefaultServiceManager
             }
             catch (SimulationException e)
             {
-                logger.error("SimulationException", e);
+                logger.error(e.toString());
             }
         }
     };
     
-    private DefaultApplicationStateService appState = new DefaultApplicationStateService();
     private ActionManager actionManager;
     
-    public SimulationApplication()
+    public SimulationApplication() { }
+    
+    protected void preInitialize(Simulation simulation, ProgressMonitor progress) 
     {
-    }
-
-    public void initialize(ProgressMonitor progress, String[] args)
-    {
-        progress = NullProgressMonitor.createIfNull(progress);
-        
-        addService(appState);
         addService(actionManager = findService(ActionManager.class));
         
-        progress.subTask("Initializing scripting support ...");
-        addService(new ScriptRunner(this));        
-        
-        createSimulation(progress);
-                                
-        try
-        {
-            loadActions(progress);
-            
-            final SimulationMainFrame mainFrame = createMainFrame(progress);   
-                        
-            loadScenario(progress, args);
-            
-            completeInitialization(mainFrame);
-        }
-        catch (Throwable e)
-        {
-            logger.error("Application initialization failure", e);
-            try
-            {
-                shutdownServices();
-            }
-            catch (SimulationException e1)
-            {
-                logger.error("SimulationException", e1);
-            }
-        }
-        finally
-        {
-            appState.setState(ApplicationState.RUNNING);
-        }
+        simulation.addListener(new SimListener());
+        loadActions(progress);
+        final SimulationMainFrame mainFrame = createMainFrame(progress);
+        completeInitialization(mainFrame);
     }
 
-    private void loadActions(ProgressMonitor progress) throws Exception
+    private void loadActions(ProgressMonitor progress)
     {
         // Install default actions from javascript
         final ScriptRunner scriptRunner = findService(ScriptRunner.class);
-        scriptRunner.runResource(progress, getClass().getClassLoader(), SimJrProps.get("simjr.actions.path", "simjr.actions.js"));        
-    }
-    
-    private void loadScenario(ProgressMonitor progress, String[] args)
-            throws SimulationException, Exception
-    {
-        progress.subTask("Loading scenario ...");
-        final ScriptRunner scriptRunner = findService(ScriptRunner.class);
-        final ScenarioLoader loader = new ScenarioLoader(this);
-        for(String arg : args)
+        final String actionsJs = SimJrProps.get("simjr.actions.path", "simjr.actions.js");
+        try 
         {
-            final String ext = FileTools.getExtension(arg).toLowerCase();
-            if(ext.equals("xml") || ext.equals("sjx"))
-            {
-                loader.loadScenario(new File(arg), progress);
-            }
-            else
-            {
-                scriptRunner.run(progress, new File(arg));
-            }
+            scriptRunner.runResource(progress, getClass().getClassLoader(), actionsJs);
+        }
+        catch (Exception e) 
+        {
+            logger.error("Unable to load actions from: " + actionsJs, e);
         }
     }
+    
 
-    private void completeInitialization(SimulationMainFrame mainFrame)
+    protected void completeInitialization(SimulationMainFrame mainFrame)
     {
         actionManager.updateActions();
         mainFrame.toFront();
         mainFrame.requestFocus();
     }
 
-    private void createSimulation(ProgressMonitor progress)
-    {
-        // Set up the simulation with a default terrain. It can be set later by a scenario script
-        // For now, we're doing this here so that the global simulation variable can be set correctly
-        // in simjr.common.js. TODO: get rid of the global variable or something.
-        progress.subTask("Initializing simulation ...");
-        Geodetic.Point origin = new Mgrs().toGeodetic(SimJrProps.get("simjr.simulation.defaultOriginMgrs", "11SMS6025093000"));
-        SimpleTerrain terrain = new SimpleTerrain(origin);
-        Simulation simulation = new Simulation(terrain);
-        simulation.addListener(new SimListener());
-        addService(simulation);
-    }
-
-    private SimulationMainFrame createMainFrame(ProgressMonitor progress)
+    protected SimulationMainFrame createMainFrame(ProgressMonitor progress)
     {
         progress.subTask("Initializing main window ...");
         SimulationMainFrame mainFrame = new SimulationMainFrame(this);
@@ -251,8 +184,6 @@ public class SimulationApplication extends DefaultServiceManager
         logger.info("   current directory = " + System.getProperty("user.dir"));
         
         SplashScreen splashScreen = showSplashScreen();
-        
-        SimJrActivatorManager.startActivators();
         
         app.initialize(splashScreen, args);
         

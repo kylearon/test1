@@ -53,10 +53,10 @@ import com.soartech.simjr.SimJrProps;
 import com.soartech.simjr.SimulationException;
 import com.soartech.simjr.app.ApplicationState;
 import com.soartech.simjr.app.DefaultApplicationStateService;
-import com.soartech.simjr.scenario.Model;
-import com.soartech.simjr.scenario.ModelChangeEvent;
-import com.soartech.simjr.scenario.ModelChangeListener;
-import com.soartech.simjr.scenario.ModelException;
+import com.soartech.simjr.scenario.model.Model;
+import com.soartech.simjr.scenario.model.ModelChangeEvent;
+import com.soartech.simjr.scenario.model.ModelChangeListener;
+import com.soartech.simjr.scenario.model.ModelException;
 import com.soartech.simjr.services.DefaultServiceManager;
 import com.soartech.simjr.sim.SimpleTerrain;
 import com.soartech.simjr.sim.Simulation;
@@ -97,7 +97,7 @@ public class ScenarioEditorApplication extends DefaultServiceManager implements 
             }
             catch (SimulationException e)
             {
-                logger.error("SimulationException", e);
+                logger.error(e.toString());
             }
         }
     };
@@ -176,7 +176,7 @@ public class ScenarioEditorApplication extends DefaultServiceManager implements 
         }
         catch (ModelException e)
         {
-            logger.error("ModelException", e);
+            logger.error(e.toString());
             JOptionPane.showMessageDialog(null, 
                                           String.format("Failed to load '%s': %s", file, e.getMessage()), 
                                           "Error", JOptionPane.ERROR_MESSAGE);
@@ -222,7 +222,7 @@ public class ScenarioEditorApplication extends DefaultServiceManager implements 
     
     public void showPanel(JComponent component)
     {
-        frame.showPanel(component);
+       
     }
     
     public File selectFile(Object... filters)

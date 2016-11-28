@@ -42,10 +42,10 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.undo.UndoableEdit;
 
-import com.soartech.simjr.scenario.ModelChangeEvent;
-import com.soartech.simjr.scenario.ModelChangeListener;
 import com.soartech.simjr.scenario.ScriptBlockElement;
 import com.soartech.simjr.scenario.edits.ChangeScriptBlockEdit;
+import com.soartech.simjr.scenario.model.ModelChangeEvent;
+import com.soartech.simjr.scenario.model.ModelChangeListener;
 
 /**
  * @author ray
@@ -71,8 +71,8 @@ public class ScriptEditPanel extends JPanel implements ModelChangeListener
      
         if(rows > 0)
         {
-            area.setMinimumSize(new Dimension(1, rows * 15));
-            area.setPreferredSize(new Dimension(1, rows * 15));
+            area.setMinimumSize(new Dimension(100, rows * 15));
+            area.setPreferredSize(new Dimension(100, rows * 15));
         }
         add(new JScrollPane(area), BorderLayout.CENTER);
         

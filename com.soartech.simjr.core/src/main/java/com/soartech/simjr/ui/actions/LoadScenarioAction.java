@@ -42,6 +42,9 @@ import org.slf4j.LoggerFactory;
 
 import com.soartech.simjr.NullProgressMonitor;
 import com.soartech.simjr.SimulationException;
+import com.soartech.simjr.scenario.model.Model;
+import com.soartech.simjr.scenario.model.ModelChangeEvent;
+import com.soartech.simjr.scenario.model.ModelService;
 import com.soartech.simjr.scripting.ScriptRunner;
 import com.soartech.simjr.sim.ScenarioLoader;
 import com.soartech.simjr.sim.Simulation;
@@ -101,6 +104,8 @@ public class LoadScenarioAction extends AbstractSimulationAction
             try
             {
                 loader.loadScenario(file, new NullProgressMonitor());
+                Model model = findService(ModelService.class).getModel();
+                model.fireChange(new ModelChangeEvent(model, model, Model.FILE));
             }
             catch (SimulationException e)
             {

@@ -63,7 +63,7 @@ public class AreaShape extends EntityShape implements EntityConstants
          */
         public EntityShape create(Entity entity, ShapeSystem system)
         {
-            return new AreaShape(Adaptables.adapt(entity, AbstractPolygon.class), system, true);
+            return new AreaShape(Adaptables.adapt(entity, AbstractPolygon.class), system, false);
         }
         
         /* (non-Javadoc)
@@ -111,8 +111,10 @@ public class AreaShape extends EntityShape implements EntityConstants
     private boolean updateHull = false;
     
     /**
-     * @param area
+     * 
+     * @param polygon
      * @param system
+     * @param convex
      */
     public AreaShape(AbstractPolygon polygon, ShapeSystem system, boolean convex)
     {
@@ -127,11 +129,13 @@ public class AreaShape extends EntityShape implements EntityConstants
         ShapeStyle style = new ShapeStyle().setFillStyle(FillStyle.FILLED).
                                             setLineThickness(Scalar.createPixel(1));
         
-        Color lineColor = (Color) EntityTools.getProperty(props, PROPERTY_SHAPE_LINE_COLOR, Color.GRAY);
+        
+        Color lineColor = (Color) EntityTools.getLineColor(polygon.getEntity(), Color.GRAY);
         style.setLineColor(lineColor);
         
-        Color fillColor = (Color) EntityTools.getProperty(props, PROPERTY_SHAPE_FILL_COLOR, Color.LIGHT_GRAY);
+        Color fillColor = (Color) EntityTools.getFillColor(polygon.getEntity(), Color.LIGHT_GRAY);
         style.setFillColor(fillColor);
+        
         
         Number opacity = (Number) EntityTools.getProperty(props, PROPERTY_SHAPE_OPACITY, 0.5f);
         if(opacity != null)

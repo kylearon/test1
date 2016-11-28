@@ -54,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 
 import javax.swing.AbstractAction;
+import javax.swing.Icon;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JFrame;
 import javax.swing.JMenu;
@@ -91,6 +92,7 @@ import com.soartech.simjr.ProgressMonitor;
 import com.soartech.simjr.SimJrProps;
 import com.soartech.simjr.SimulationException;
 import com.soartech.simjr.adaptables.Adaptables;
+import com.soartech.simjr.scenario.model.ModelService;
 import com.soartech.simjr.services.ServiceManager;
 import com.soartech.simjr.services.SimulationService;
 import com.soartech.simjr.ui.actions.ActionManager;
@@ -126,25 +128,23 @@ import com.soartech.simjr.ui.pvd.PlanViewDisplayProvider;
  */
 public class SimulationMainFrame extends JFrame implements SimulationService, PlanViewDisplayProvider
 {
-//    public static final String PVD_FRAME_KEY = "__pvds";
+    public static final String PVD_FRAME_KEY = "__pvds";
     public static final String RADIO_MESSAGES_FRAME_KEY = "__radioMessages";
     public static final String CONSOLE_FRAME_KEY = "__console";
     public static final String SOAR_STATUS_FRAME_KEY = "__soarStatus";
 
     public static final String ENTITY_PROPERTIES_FRAME_KEY = "__entityProperties";
     public static final String CHEAT_SHEET_FRAME_KEY = "__cheatSheet";
-
     public static final String ENTITIES_FRAME_KEY = "__entities";
     
-    private final CLocation defaultPvdLocation = CLocation.base().normalRectangle(0, 0, 0.8, 0.7).stack(0);
+    private final CLocation defaultPvdLocation = CLocation.base().normalRectangle(0, 0, 0.8, 0.7).stack(1);
     
-    private final CLocation defaultEntityListLocation = CLocation.base().normalRectangle(0.8, 0, 0.2, 0.5);
+    private final CLocation defaultEntityListLocation =       CLocation.base().normalRectangle(0.8, 0, 0.2, 0.5);
     private final CLocation defaultEntityPropertiesLocation = CLocation.base().normalRectangle(0.8, 0.5, 0.2, 0.5);
-    private final CLocation defaultRadioMessagesLocation = CLocation.base().normalRectangle(0, 0.7, 0.8, 0.3);
-    private final CLocation defaultConsoleLocation = CLocation.base().normalRectangle(0, 0.7, 0.8, 0.3).stack(0);
-    private final CLocation defaultCheatSheetLocation = CLocation.base().normalRectangle(0, 0.7, 0.8, 0.3).stack(0);
-    
-    private final CLocation defaultSingleDockableLocation = CLocation.base().normalRectangle(0, 0.7, 0.8, 0.3).stack(0);
+    private final CLocation defaultRadioMessagesLocation =    CLocation.base().normalRectangle(0, 0.7, 0.8, 0.3);
+    private final CLocation defaultConsoleLocation =          CLocation.base().normalRectangle(0, 0.7, 0.8, 0.3).stack(0);
+    private final CLocation defaultCheatSheetLocation =       CLocation.base().normalRectangle(0, 0.7, 0.8, 0.3).stack(0);
+    private final CLocation defaultSingleDockableLocation =   CLocation.base().normalRectangle(0, 0.7, 0.8, 0.3).stack(0);
     
     public static final CLocation defaultSAPLocation = CLocation.base().normalRectangle(0.8, 0, 0.2, 0.5);
     
@@ -211,6 +211,10 @@ public class SimulationMainFrame extends JFrame implements SimulationService, Pl
         this.services = serviceManager;
         this.services.addService(this);
         
+        ModelService model = services.findService(ModelService.class);
+        if(model == null)
+            services.addService(new ModelService(services));
+        
         setTitle(SimJrProps.get("simjr.window.title","Sim Jr"));
         frameDimension = new Dimension(SimJrProps.get("simjr.window.width", 1000), SimJrProps.get("simjr.window.height", 800));
         setSize(frameDimension);
@@ -225,40 +229,59 @@ public class SimulationMainFrame extends JFrame implements SimulationService, Pl
         
         //set the default look and feel
         LookAndFeelList lafList = LookAndFeelList.getDefaultList();
-        lafList.setLookAndFeel(lafList.getSystem());
-        
+        int laf = SimJrProps.get("simjr.overrideLookAndFeel", -1);
+        if (laf < 0) {
+            lafList.setLookAndFeel(lafList.getSystem());
+        }
+        else {
+            lafList.setLookAndFeel(lafList.get(laf));
+        }
+
         // Listen for window closing event so we can save dock layout before
         // the frame is dispose.
         this.addWindowListener(new WindowAdapter() {
-
-            public void windowClosing(WindowEvent arg0)
-            {
+            public void windowClosing(WindowEvent arg0) {
                 control.destroy();
-            }});
-
+            }
+        });
+     
         //add factory that lets DF create multiple PVD frames
         pvdFactory = new PvdFactory();
         control.addMultipleDockableFactory("pvd", pvdFactory);
-        
+      
         //create the first PVD
         createPvdFrame(null, false);
-
+        
         addDockable(new EntityListPanel(services), defaultEntityListLocation, ENTITIES_FRAME_KEY);
         addDockable(this.propertiesView = new EntityPropertiesView(services), defaultEntityPropertiesLocation, ENTITY_PROPERTIES_FRAME_KEY);
         addDockable(new RadioMessagePanel(services), defaultRadioMessagesLocation, RADIO_MESSAGES_FRAME_KEY);
         addDockable(new ConsolePanel(services), defaultConsoleLocation, CONSOLE_FRAME_KEY);
+        
         addDockable(services.findService(CheatSheetView.class), defaultCheatSheetLocation, CHEAT_SHEET_FRAME_KEY);
         
+        resetDockingLayout();
         initMenus();
         initToolbar();
     }
 
-    private void addDockable(SingleCDockable dockable, CLocation location, String key)
+    public void addDockable(SingleCDockable dockable, CLocation location, String key)
     {
         dockable.setLocation(location);
         singleDockables.put(key, dockable);
         control.addDockable(dockable);
         dockable.setVisible(true);        
+    }
+    
+    public SingleCDockable removeDockable(String key)
+    {
+        SingleCDockable dockable = singleDockables.remove(key);
+        control.removeDockable(dockable);
+        return dockable;
+    }
+    
+    public void moveDockable(CLocation location, String key)
+    {
+        singleDockables.get(key).setLocation(location);
     }
     
     /**
@@ -297,8 +320,7 @@ public class SimulationMainFrame extends JFrame implements SimulationService, Pl
     public void addFrame(String id, String title, Component c, Component nextTo)
     {
         //create a dockable to hold the component
-        DefaultSingleCDockable dockable = new DefaultSingleCDockable(id, title,
-                c);
+        DefaultSingleCDockable dockable = new DefaultSingleCDockable(id, title, c);
         dockable.setMinimizable(false);
         dockable.setCloseable(true);
         
@@ -307,7 +329,33 @@ public class SimulationMainFrame extends JFrame implements SimulationService, Pl
         
         //TODO: implement setting the location next to the given component
     }
-    
+
+    /**
+     * Wrap the given component in a dockable frame and add it to the main frame.
+     * 
+     * @param id
+     * @param title
+     * @param c
+     * @param nextTo
+     */
+    public void addFrame(String id, String title, Component c, Component nextTo, Icon icon)
+    {
+        // create a dockable to hold the component
+        DefaultSingleCDockable dockable = new DefaultSingleCDockable(id, title,
+                c);
+        dockable.setMinimizable(false);
+        dockable.setCloseable(true);
+        if (icon != null)
+        {
+            dockable.setTitleIcon(icon);
+        }
+
+        // add the dockable to the main frame
+        addDockable(dockable, defaultSingleDockableLocation, id);
+
+        // TODO: implement setting the location next to the given component
+    }
+
     /**
      * Writes all the settings of this application.
      * @param element the xml element to write into
@@ -432,6 +480,12 @@ public class SimulationMainFrame extends JFrame implements SimulationService, Pl
             frame.setLocation(defaultPvdLocation);
         }
         
+        //show each single dockable
+        for(SingleCDockable dockable : singleDockables.values())
+        {
+            dockable.setVisible(true);
+        }
+        
         //show the first pvd frame
         for(PvdFrame frame : pvds)
         {
@@ -441,11 +495,50 @@ public class SimulationMainFrame extends JFrame implements SimulationService, Pl
                 frame.setVisible(true);
             }
         }
-
-        //show each single dockable
+    }
+    
+    /**
+     * This removes all the docking panels to allow for pragmatically creating a new layout.
+     * 
+     */
+    public void blankDockingLayout()
+    {
+        //close all non-default dockables
+        for(SingleCDockable dockable : singleAuxillaryDockables.values())
+        {
+            if (dockable.isVisible())
+            {
+                dockable.setVisible(false);
+            }
+            control.removeDockable(dockable);
+        }
+        
+        //close each single dockable
         for(SingleCDockable dockable : singleDockables.values())
         {
-            dockable.setVisible(true);
+            dockable.setVisible(false);
+        }
+        
+        //close each pvd frame
+        for(PvdFrame frame : pvds)
+        {
+            if(frame.getControl() != null)
+            {
+                frame.setVisible(false);
+            }
+        }
+        
+        //reset the location of each single dockable
+        singleDockables.get(ENTITIES_FRAME_KEY).setLocation(defaultEntityListLocation);
+        singleDockables.get(ENTITY_PROPERTIES_FRAME_KEY).setLocation(defaultEntityPropertiesLocation);
+        singleDockables.get(RADIO_MESSAGES_FRAME_KEY).setLocation(defaultRadioMessagesLocation);
+        singleDockables.get(CONSOLE_FRAME_KEY).setLocation(defaultConsoleLocation);
+        singleDockables.get(CHEAT_SHEET_FRAME_KEY).setLocation(defaultCheatSheetLocation);
+        
+        //reset the location of each pvd frame
+        for(PvdFrame frame : pvds)
+        {
+            frame.setLocation(defaultPvdLocation);
         }
     }
     
@@ -481,13 +574,27 @@ public class SimulationMainFrame extends JFrame implements SimulationService, Pl
     {
         return createPvdFrame(null, split).pvd;
     }
+    
+    public PlanViewDisplay createPlanViewDisplay(boolean split, CLocation location)
+    {
+        return createPvdFrame(null, split, location).pvd;
+    }
+    
+    public PlanViewDisplay createPlanViewDisplay(String title, boolean split, CLocation location)
+    {
+        return createPvdFrame(title, split, location).pvd;
+    }
 
     private PvdFrame createPvdFrame(String title, boolean split)
     {
+        return createPvdFrame(title, split, defaultPvdLocation);
+    }
+
+    private PvdFrame createPvdFrame(String title, boolean split, CLocation location)
+    {
         boolean first = nextPvdId == 0;
         
-        if(title == null)
-        {
+        if(title == null) {
             title = "PVD" + ++nextPvdId;
         }
         
@@ -503,11 +610,11 @@ public class SimulationMainFrame extends JFrame implements SimulationService, Pl
     
     private PlanViewDisplay createPlanViewDisplay(PvdFrame pf, String title, boolean split, boolean first)
     {
-        pf.pvd = new PlanViewDisplay(services, getActivePlanViewDisplay());
+        pf.pvd = new PlanViewDisplay(services);
+        pf.pvd.copyFromDisplay(getActivePlanViewDisplay());
         pf.title = title;
         
         //DF settings
-//        pf.setLayout(new BorderLayout());
         pf.setCloseable(true);
         pf.setMinimizable(false);
         pf.setExternalizable(false);
@@ -519,12 +626,11 @@ public class SimulationMainFrame extends JFrame implements SimulationService, Pl
         if(first)
         {
             pf.setCloseable(false);
-            
             activePvdFrame = pf;
         }
         
         //add the plan view display to the dockable's content pane
-        pf.getContentPane().add(pf.pvd);
+        pf.getContentPane().add(pf.pvd.getView().getComponent());
         
         //add the dockable to the DF controller
         control.addDockable("__" + pf.title, pf);
@@ -540,7 +646,7 @@ public class SimulationMainFrame extends JFrame implements SimulationService, Pl
         
         if(!first)
         {
-           pf.pvd.showAll();
+           pf.pvd.getView().showAll();
         }
         
         pf.addFocusListener(new MyFocusListener());
@@ -603,18 +709,16 @@ public class SimulationMainFrame extends JFrame implements SimulationService, Pl
         //create the help menu
         JMenu helpMenu = new JMenu("Help");
         helpMenu.add(new AbstractAction("About") {
-
             private static final long serialVersionUID = 486968928363337592L;
-
-            public void actionPerformed(ActionEvent arg0)
-            {
+            public void actionPerformed(ActionEvent arg0) {
                 AboutDialog.show(SimulationMainFrame.this);
-            } });
+            }
+        });
         bar.add(helpMenu);
         
         setJMenuBar(bar);
     }
-
+    
     /**
      * @param viewMenu
      */
@@ -753,7 +857,6 @@ public class SimulationMainFrame extends JFrame implements SimulationService, Pl
                 // The frames library relies on titles and modifying the title like this causes problems
                 // when loading layouts from files.
                 //activePvdFrame.setTitleText(activePvdFrame.title + " (active)");
-                
                 services.findService(ActionManager.class).updateActions();
             }
         }
@@ -763,55 +866,37 @@ public class SimulationMainFrame extends JFrame implements SimulationService, Pl
         {
             //do nothing for now
         }
-        
     }
     
-    private class PlanViewDisplayMenu extends JMenu
-    {
+    private class PlanViewDisplayMenu extends JMenu {
         private static final long serialVersionUID = -7628240663942850385L;
 
         public PlanViewDisplayMenu()
         {
             super("PVDs");
-            
             addMenuListener(new MenuListener() {
-
-                public void menuCanceled(MenuEvent e)
-                {
-                }
-
-                public void menuDeselected(MenuEvent e)
-                {
-                }
-
-                public void menuSelected(MenuEvent e)
-                {
+                public void menuCanceled(MenuEvent e) { }
+                public void menuDeselected(MenuEvent e) { }
+                public void menuSelected(MenuEvent e) {
                     populate();
                 }});
         }
         
-        private void populate()
-        {
+        private void populate() {
             removeAll();
-            
-            for(final PvdFrame pf : pvds)
-            {
-                add(new AbstractAction("Show " + pf.title) {
+            for(final PvdFrame pf : pvds) {
+                add(new AbstractAction("Show " + pf.title) 
+                {
                     private static final long serialVersionUID = -4858584994300254664L;
-
-                    public void actionPerformed(ActionEvent arg0)
+                    public void actionPerformed(ActionEvent arg0) 
                     {
-                        for(PvdFrame frame : pvds)
-                        {
-                            if(frame.getTitleText().equals(pf.title))
-                            {
-                                if(!frame.isVisible())
-                                {
+                        for(PvdFrame frame : pvds) {
+                            if(frame.getTitleText().equals(pf.title)) {
+                                if(!frame.isVisible()) {
                                     control.addDockable("__" + frame.title, frame);
                                     frame.setVisible(true);
                                 }
-                                else
-                                {
+                                else {
                                     frame.toFront();
                                 }
                                 break;
@@ -819,7 +904,6 @@ public class SimulationMainFrame extends JFrame implements SimulationService, Pl
                         }
                     }
                 });
-                
             }
         }
     }
@@ -862,7 +946,6 @@ public class SimulationMainFrame extends JFrame implements SimulationService, Pl
             layout.setName(dockable.getTitleText());
             return layout;
         }
-        
     }
     
     /**
@@ -895,7 +978,7 @@ public class SimulationMainFrame extends JFrame implements SimulationService, Pl
 //            name = in.readUTF();
         }
 
-        public void readXML( XElement element ) {
+        public void readXML(XElement element ) {
             name = element.getString();
         }
 
